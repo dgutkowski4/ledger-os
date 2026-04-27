@@ -76,30 +76,31 @@ function SavingsSection({ savings, setSavings, month = "APRIL" }) {
 }
 
 function NetWorthSection({ history, netWorth, month = "APRIL" }) {
-  /* Use live netWorth if provided, otherwise fall back to last history point */
-  const current  = netWorth != null ? netWorth : history[history.length - 1].v;
-  const prior    = history[history.length - 2].v;
-  const delta    = current - prior;
-  const deltaP   = (delta / prior) * 100;
-  const ytdStart = history[history.length - 5].v;
-  const ytdD     = current - ytdStart;
-  /* Replace last history point with the live value for the chart */
+  const current   = netWorth != null ? netWorth : history[history.length - 1].v;
+  const hasPrior  = history.length >= 2;
+  const prior     = hasPrior ? history[history.length - 2].v : null;
+  const delta     = hasPrior ? current - prior : null;
+  const deltaP    = hasPrior && prior ? (delta / prior) * 100 : null;
+  const ytdStart  = history.length >= 5 ? history[history.length - 5].v : history[0].v;
+  const ytdD      = current - ytdStart;
   const chartData = history.map((h, i) =>
     i === history.length - 1 ? { ...h, v: current } : h
   );
   return (
     <Section tone="cream" eyebrow={month} title="Net Worth" titleKey="nw-dashboard"
-      right={<span className="sec__range">12 months</span>}>
+      right={<span className="sec__range">{history.length} month{history.length !== 1 ? "s" : ""}</span>}>
       <div className="nw">
         <div className="nw__big">
           <span className="nw__lbl">Today</span>
           <span className="nw__v">{fmt0(current)}</span>
-          <span className="nw__sub">
-            <span className={delta >= 0 ? "pos" : "neg"}>
-              {delta >= 0 ? "+" : ""}{fmt0(delta)}
+          {hasPrior && (
+            <span className="nw__sub">
+              <span className={delta >= 0 ? "pos" : "neg"}>
+                {delta >= 0 ? "+" : ""}{fmt0(delta)}
+              </span>
+              <span className="muted"> vs. last month{deltaP != null ? ` · ${deltaP.toFixed(1)}%` : ""}</span>
             </span>
-            <span className="muted"> vs. last month · {deltaP.toFixed(1)}%</span>
-          </span>
+          )}
         </div>
         <div className="nw__kv">
           <div>

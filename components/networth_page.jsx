@@ -20,19 +20,19 @@ const NW_LIABILITIES_SEED = [
   { id: "l4", name: "Student Loans",  category: "Student Loan", value: 3235.00 },
 ];
 
-function NetWorthPage({ assets, setAssets, liabilities, setLiabilities }) {
+function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history = window.NETWORTH_HISTORY }) {
   const totalAssets      = assets.reduce((s, a) => s + a.value, 0);
   const totalLiabilities = liabilities.reduce((s, l) => s + l.value, 0);
   const netWorth         = totalAssets - totalLiabilities;
 
-  const history    = window.NETWORTH_HISTORY;
-  const lastMonthV = history[history.length - 2].v;
-  const mom        = netWorth - lastMonthV;
-  const ytdStart   = history[history.length - 5].v;
-  const ytdD       = netWorth - ytdStart;
   const chartData  = history.map((h, i) =>
     i === history.length - 1 ? { ...h, v: netWorth } : h
   );
+  const hasPrior   = history.length >= 2;
+  const lastMonthV = hasPrior ? history[history.length - 2].v : null;
+  const mom        = hasPrior ? netWorth - lastMonthV : null;
+  const ytdStart   = history.length >= 5 ? history[history.length - 5].v : history[0].v;
+  const ytdD       = netWorth - ytdStart;
 
   /* Asset operations */
   const updateAsset  = (id, patch) => setAssets((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
@@ -71,8 +71,8 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities }) {
         </div>
         <div className="xsum__cell">
           <span className="xsum__l">vs. Last Month</span>
-          <span className={`xsum__v ${mom >= 0 ? "pos" : "neg"}`}>
-            {mom >= 0 ? "+" : ""}{fmt0(mom)}
+          <span className={`xsum__v ${!hasPrior ? "muted" : mom >= 0 ? "pos" : "neg"}`}>
+            {hasPrior ? (mom >= 0 ? "+" : "") + fmt0(mom) : "—"}
           </span>
           <span className="xsum__sub"></span>
         </div>
@@ -87,10 +87,12 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities }) {
             <div className="nw__big">
               <span className="nw__lbl">Current</span>
               <span className="nw__v">{fmt0(netWorth)}</span>
-              <span className="nw__sub">
-                <span className={mom >= 0 ? "pos" : "neg"}>{mom >= 0 ? "+" : ""}{fmt0(mom)}</span>
-                <span className="muted"> vs. last month</span>
-              </span>
+              {hasPrior && (
+                <span className="nw__sub">
+                  <span className={mom >= 0 ? "pos" : "neg"}>{mom >= 0 ? "+" : ""}{fmt0(mom)}</span>
+                  <span className="muted"> vs. last month</span>
+                </span>
+              )}
             </div>
             <div className="nw__kv">
               <div>

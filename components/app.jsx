@@ -24,6 +24,7 @@ function App() {
   const [accounts,       setAccounts]       = React.useState(() => lsGet("ledger_accounts",        window.SAVINGS_ACCOUNTS));
   const [nwAssets,       setNwAssets]       = React.useState(() => lsGet("ledger_nw_assets",       window.NW_ASSETS_SEED));
   const [nwLiabilities,  setNwLiabilities]  = React.useState(() => lsGet("ledger_nw_liabilities",  window.NW_LIABILITIES_SEED));
+  const [nwHistory,      setNwHistory]      = React.useState(() => lsGet("ledger_nw_history",      window.NETWORTH_HISTORY));
   const [accent,         setAccent]         = React.useState(() => lsGet("ledger_accent",          "terra"));
   const [density,        setDensity]        = React.useState(() => lsGet("ledger_density",         "relaxed"));
   const [savingsNotes, setSavingsNotes] = React.useState(() => lsGet("ledger_savings_notes", {}));
@@ -41,6 +42,7 @@ function App() {
   React.useEffect(() => { localStorage.setItem("ledger_accounts",       JSON.stringify(accounts));      }, [accounts]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_assets",      JSON.stringify(nwAssets));      }, [nwAssets]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_liabilities", JSON.stringify(nwLiabilities)); }, [nwLiabilities]);
+  React.useEffect(() => { localStorage.setItem("ledger_nw_history",     JSON.stringify(nwHistory));     }, [nwHistory]);
   React.useEffect(() => { localStorage.setItem("ledger_accent",         JSON.stringify(accent));        }, [accent]);
   React.useEffect(() => { localStorage.setItem("ledger_density",        JSON.stringify(density));       }, [density]);
   React.useEffect(() => { localStorage.setItem("ledger_savings_notes",  JSON.stringify(savingsNotes));  }, [savingsNotes]);
@@ -57,11 +59,33 @@ function App() {
   const liveNetWorth = nwAssets.reduce((s, a) => s + a.value, 0)
                      - nwLiabilities.reduce((s, l) => s + l.value, 0);
 
+  /* Per-month savings paid amounts — stored inside the ledger, not in base savings.
+     effectiveSavings = base savings structure merged with current month's paid amounts.
+     Fallback to base savings.paid1/paid2 for initial April data (migration). */
+  const monthSavingsPaid = currentLedger.savingsPaid || {};
+  const effectiveSavings = savings.map((r) => ({
+    ...r,
+    paid1: r.id in monthSavingsPaid ? monthSavingsPaid[r.id].paid1 : r.paid1,
+    paid2: r.id in monthSavingsPaid ? monthSavingsPaid[r.id].paid2 : r.paid2,
+  }));
+
+  /* Setter: structural changes → base savings; paid amounts → current ledger */
+  const setEffectiveSavings = (updater) => {
+    const next = typeof updater === "function" ? updater(effectiveSavings) : updater;
+    setSavings(next.map((r) => ({ ...r, paid1: 0, paid2: 0 })));
+    const paid = {};
+    next.forEach((r) => { paid[r.id] = { paid1: r.paid1, paid2: r.paid2 }; });
+    setLedgers((prev) => ({
+      ...prev,
+      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), savingsPaid: paid },
+    }));
+  };
+
   /* Header derived totals */
   const incomeTotal  = window.INCOME.reduce((s, i) => s + i.amount, 0);
   const actualTotal  = expenses.reduce((s, e) => s + e.actual, 0);
   const leftover     = incomeTotal - actualTotal;
-  const savingsTotal = savings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
+  const savingsTotal = effectiveSavings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
 
   /* Delete a month — switches selection to adjacent month first */
   const deleteMonth = (key) => {
@@ -78,7 +102,8 @@ function App() {
     setSelectedMonth(nextSelected || "");
   };
 
-  /* Add a new month — inline, no prompt */
+  /* Add a new month — inline, no prompt.
+     Snapshots current paid amounts into ledger, appends to NW history. */
   const startAddMonth = () => {
     const idx  = MONTHS_LIST.indexOf(selectedMonth.split(" ")[0]);
     const year = parseInt(selectedMonth.split(" ")[1] || "2026", 10);
@@ -94,10 +119,26 @@ function App() {
     setNewMonthDraft("");
     if (!key) return;
     if (ledgers[key]) { setSelectedMonth(key); return; }
+
+    /* Snapshot current month's paid amounts into ledger before switching */
+    const snapshotPaid = {};
+    effectiveSavings.forEach((r) => { snapshotPaid[r.id] = { paid1: r.paid1, paid2: r.paid2 }; });
+
+    /* Append new NW history entry for the new month */
+    const newMonthShort = key.split(" ")[0].slice(0, 3);
+    setNwHistory((prev) => {
+      /* Replace last point (current) with live value, then add new blank entry */
+      const updated = prev.map((h, i) => i === prev.length - 1 ? { ...h, v: liveNetWorth } : h);
+      return [...updated, { m: newMonthShort, v: liveNetWorth }];
+    });
+
     setLedgers((prev) => ({
       ...prev,
-      [key]: { expenses: expenses.map((e) => ({ ...e, actual: 0 })) },
+      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), savingsPaid: snapshotPaid },
+      [key]: { expenses: expenses.map((e) => ({ ...e, actual: 0 })), savingsPaid: {} },
     }));
+    /* Clear base savings paid amounts now that they're in the ledger */
+    setSavings((prev) => prev.map((r) => ({ ...r, paid1: 0, paid2: 0 })));
     setSelectedMonth(key);
   };
 
@@ -205,10 +246,10 @@ function App() {
       {tab === "dashboard" && (
         <div className="grid">
           <div className="grid__full">
-            <NetWorthSection history={window.NETWORTH_HISTORY} netWorth={liveNetWorth} month={monthLabel} />
+            <NetWorthSection history={nwHistory} netWorth={liveNetWorth} month={monthLabel} />
           </div>
           <SpendBreakdownSection expenses={expenses} month={monthLabel} />
-          <AllocationSection savings={savings} month={monthLabel} />
+          <AllocationSection savings={effectiveSavings} month={monthLabel} />
           <div className="grid__full">
             <PayDayPlanner
               month={monthLabel}
@@ -232,7 +273,7 @@ function App() {
       {tab === "savings" && (
         <SavingsPage
           accounts={accounts} setAccounts={setAccounts}
-          savings={savings}   setSavings={setSavings}
+          savings={effectiveSavings} setSavings={setEffectiveSavings}
           month={monthLabel}
           selectedMonth={selectedMonth}
           savingsNotes={savingsNotes} setSavingsNotes={setSavingsNotes} />
@@ -242,7 +283,8 @@ function App() {
       {tab === "networth" && (
         <NetWorthPage
           assets={nwAssets}           setAssets={setNwAssets}
-          liabilities={nwLiabilities} setLiabilities={setNwLiabilities} />
+          liabilities={nwLiabilities} setLiabilities={setNwLiabilities}
+          history={nwHistory} />
       )}
 
       {/* Tweaks panel */}

@@ -23,11 +23,11 @@ const EXPENSES = [
 ];
 
 const SAVINGS = [
-  { id: "sv1", acct: "Marcus HYSA",        type: "HYSA",       perCheck: 250, target:  500, paid1: 250, paid2:  0  },
-  { id: "sv2", acct: "Vanguard IRA",       type: "Retirement", perCheck: 292, target:  584, paid1: 292, paid2:  0  },
-  { id: "sv3", acct: "Fidelity Brokerage", type: "Brokerage",  perCheck: 150, target:  300, paid1: 150, paid2:  0  },
-  { id: "sv4", acct: "Coinbase Crypto",    type: "Crypto",     perCheck: 100, target:  100, paid1: 100, paid2: 100 },
-  { id: "sv5", acct: "Charles Schwab",     type: "Brokerage",  perCheck:   8, target:   16, paid1:   8, paid2:  0  },
+  { id: "sv1", acct: "Marcus HYSA",        type: "HYSA",       perCheck: 250, target:  500, paid1: 0, paid2: 0 },
+  { id: "sv2", acct: "Vanguard IRA",       type: "Retirement", perCheck: 292, target:  584, paid1: 0, paid2: 0 },
+  { id: "sv3", acct: "Fidelity Brokerage", type: "Brokerage",  perCheck: 150, target:  300, paid1: 0, paid2: 0 },
+  { id: "sv4", acct: "Coinbase Crypto",    type: "Crypto",     perCheck: 100, target:  100, paid1: 0, paid2: 0 },
+  { id: "sv5", acct: "Charles Schwab",     type: "Brokerage",  perCheck:   8, target:   16, paid1: 0, paid2: 0 },
 ];
 
 const PAYFLOW = [
@@ -41,10 +41,7 @@ const PAYFLOW = [
 ];
 
 const NETWORTH_HISTORY = [
-  { m: "May", v: 12400 }, { m: "Jun", v: 13180 }, { m: "Jul", v: 14020 },
-  { m: "Aug", v: 14760 }, { m: "Sep", v: 15880 }, { m: "Oct", v: 16940 },
-  { m: "Nov", v: 18220 }, { m: "Dec", v: 19700 }, { m: "Jan", v: 21140 },
-  { m: "Feb", v: 22580 }, { m: "Mar", v: 24110 }, { m: "Apr", v: 25780 },
+  { m: "Apr", v: 0 },
 ];
 
 const CARDS = [

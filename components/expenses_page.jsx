@@ -155,8 +155,9 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, income }) {
 
   const renderRow = (e) => {
     const remain = e.expected - e.actual;
+    const stableKey = expenses.indexOf(e);
     return (
-      <tr key={e.cat} className="catrow">
+      <tr key={stableKey} className="catrow">
         <td className="catrow__cat">
           <input
             className={`catchip catchip--input cat--${CAT_TONE[e.cat] || "other"}`}

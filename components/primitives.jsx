@@ -100,7 +100,7 @@ function SoftLine({ data, height = 120 }) {
   const min = Math.min(...vals), max = Math.max(...vals);
   const lo = Math.floor(min / 2000) * 2000, hi = Math.ceil(max / 2000) * 2000;
   const rng = hi - lo || 1;
-  const x = (i) => pad.l + (i / (data.length - 1)) * iw;
+  const x = (i) => data.length === 1 ? pad.l + iw / 2 : pad.l + (i / (data.length - 1)) * iw;
   const y = (v) => pad.t + ih - ((v - lo) / rng) * ih;
 
   const path = data.reduce((acc, d, i) => {
