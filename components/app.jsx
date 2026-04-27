@@ -87,13 +87,19 @@ function App() {
   const leftover     = incomeTotal - actualTotal;
   const savingsTotal = effectiveSavings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
 
-  /* Delete a month — switches selection to adjacent month first */
+  /* Delete a month — switches selection to adjacent month first, removes NW history entry */
   const deleteMonth = (key) => {
     if (!confirm(`Delete "${key}" and all its data?`)) return;
     const remaining = months.filter((m) => m !== key);
     const nextSelected = key === selectedMonth
       ? (remaining[months.indexOf(key)] || remaining[months.indexOf(key) - 1] || remaining[0])
       : selectedMonth;
+    const shortLabel = key.split(" ")[0].slice(0, 3);
+    setNwHistory((prev) => {
+      const idx = prev.findLastIndex((h) => h.m === shortLabel);
+      if (idx === -1) return prev;
+      return prev.filter((_, i) => i !== idx);
+    });
     setLedgers((prev) => {
       const next = { ...prev };
       delete next[key];
