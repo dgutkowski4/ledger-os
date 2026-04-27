@@ -59,6 +59,21 @@ function App() {
   const leftover     = incomeTotal - actualTotal;
   const savingsTotal = savings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
 
+  /* Delete a month — switches selection to adjacent month first */
+  const deleteMonth = (key) => {
+    if (!confirm(`Delete "${key}" and all its data?`)) return;
+    const remaining = months.filter((m) => m !== key);
+    const nextSelected = key === selectedMonth
+      ? (remaining[months.indexOf(key)] || remaining[months.indexOf(key) - 1] || remaining[0])
+      : selectedMonth;
+    setLedgers((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setSelectedMonth(nextSelected || "");
+  };
+
   /* Add a new month — carries budgeted amounts, resets actuals */
   const addMonth = () => {
     const idx  = MONTHS_LIST.indexOf(selectedMonth.split(" ")[0]);
@@ -146,11 +161,14 @@ function App() {
             <span className="xbar__lbl">Month</span>
             <div className="month-chips">
               {months.map((m) => (
-                <button key={m}
-                  className={`month-chip ${m === selectedMonth ? "is-on" : ""}`}
-                  onClick={() => setSelectedMonth(m)}>
-                  {m.split(" ")[0]}
-                </button>
+                <span key={m} className={`month-chip ${m === selectedMonth ? "is-on" : ""}`}>
+                  <button className="month-chip__label" onClick={() => setSelectedMonth(m)}>
+                    {m.split(" ")[0]}
+                  </button>
+                  {months.length > 1 && (
+                    <button className="month-chip__del" onClick={() => deleteMonth(m)} title={`Delete ${m}`}>×</button>
+                  )}
+                </span>
               ))}
             </div>
           </div>
