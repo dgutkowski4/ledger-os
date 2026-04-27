@@ -21,7 +21,9 @@ function resolveType(r) {
   return r.type || ACCT_TYPE_MAP[r.acct] || "Other";
 }
 
-function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRIL" }) {
+function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRIL", selectedMonth = "", savingsNotes = {}, setSavingsNotes }) {
+  const notes    = savingsNotes[selectedMonth] || "";
+  const setNotes = (v) => setSavingsNotes && setSavingsNotes((prev) => ({ ...prev, [selectedMonth]: v }));
   /* All stats derived from the monthly savings rows */
   const totalPaid     = savings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
   const totalTarget   = savings.reduce((s, r) => s + r.target, 0);
@@ -145,6 +147,16 @@ function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRI
         <div className="grid__full">
           <SavingsSection savings={savings} setSavings={setSavings} month={month} />
         </div>
+
+        {/* Notes */}
+        <Section tone="cream" eyebrow={month} title="Notes" titleKey="sav-notes" className="grid__full">
+          <textarea
+            className="notes-area"
+            placeholder="Add any notes for this month…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </Section>
       </div>
     </>
   );

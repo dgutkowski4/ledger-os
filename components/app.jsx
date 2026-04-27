@@ -26,8 +26,11 @@ function App() {
   const [nwLiabilities,  setNwLiabilities]  = React.useState(() => lsGet("ledger_nw_liabilities",  window.NW_LIABILITIES_SEED));
   const [accent,         setAccent]         = React.useState(() => lsGet("ledger_accent",          "terra"));
   const [density,        setDensity]        = React.useState(() => lsGet("ledger_density",         "relaxed"));
+  const [savingsNotes, setSavingsNotes] = React.useState(() => lsGet("ledger_savings_notes", {}));
   const [tweaksOpen, setTweaksOpen] = React.useState(false);
   const [tab, setTab] = React.useState(() => localStorage.getItem("ledger_tab") || "dashboard");
+  const [addingMonth, setAddingMonth] = React.useState(false);
+  const [newMonthDraft, setNewMonthDraft] = React.useState("");
 
   /* Persist all state to localStorage on change */
   React.useEffect(() => { localStorage.setItem("ledger_tab",            tab);                          }, [tab]);
@@ -40,6 +43,7 @@ function App() {
   React.useEffect(() => { localStorage.setItem("ledger_nw_liabilities", JSON.stringify(nwLiabilities)); }, [nwLiabilities]);
   React.useEffect(() => { localStorage.setItem("ledger_accent",         JSON.stringify(accent));        }, [accent]);
   React.useEffect(() => { localStorage.setItem("ledger_density",        JSON.stringify(density));       }, [density]);
+  React.useEffect(() => { localStorage.setItem("ledger_savings_notes",  JSON.stringify(savingsNotes));  }, [savingsNotes]);
   React.useEffect(() => { window.applyAccent(accent); }, [accent]);
 
   /* Derived from current ledger */
@@ -74,17 +78,21 @@ function App() {
     setSelectedMonth(nextSelected || "");
   };
 
-  /* Add a new month — carries budgeted amounts, resets actuals */
-  const addMonth = () => {
+  /* Add a new month — inline, no prompt */
+  const startAddMonth = () => {
     const idx  = MONTHS_LIST.indexOf(selectedMonth.split(" ")[0]);
     const year = parseInt(selectedMonth.split(" ")[1] || "2026", 10);
     const suggested = idx === -1 ? "" :
-      idx === 11
-        ? `January ${year + 1}`
-        : `${MONTHS_LIST[idx + 1]} ${year}`;
-    const name = prompt("New month name?", suggested);
-    if (!name || !name.trim()) return;
-    const key = name.trim();
+      idx === 11 ? `January ${year + 1}` : `${MONTHS_LIST[idx + 1]} ${year}`;
+    setNewMonthDraft(suggested);
+    setAddingMonth(true);
+  };
+
+  const commitNewMonth = () => {
+    setAddingMonth(false);
+    const key = newMonthDraft.trim();
+    setNewMonthDraft("");
+    if (!key) return;
     if (ledgers[key]) { setSelectedMonth(key); return; }
     setLedgers((prev) => ({
       ...prev,
@@ -173,7 +181,22 @@ function App() {
             </div>
           </div>
           <div className="xbar__r">
-            <button className="btn-ghost" onClick={addMonth}>+ New Month</button>
+            {addingMonth ? (
+              <input
+                className="month-chip-input"
+                autoFocus
+                value={newMonthDraft}
+                placeholder="e.g. May 2026"
+                onChange={(e) => setNewMonthDraft(e.target.value)}
+                onBlur={commitNewMonth}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitNewMonth();
+                  if (e.key === "Escape") { setAddingMonth(false); setNewMonthDraft(""); }
+                }}
+              />
+            ) : (
+              <button className="btn-ghost" onClick={startAddMonth}>+ New Month</button>
+            )}
           </div>
         </div>
       )}
@@ -210,7 +233,9 @@ function App() {
         <SavingsPage
           accounts={accounts} setAccounts={setAccounts}
           savings={savings}   setSavings={setSavings}
-          month={monthLabel} />
+          month={monthLabel}
+          selectedMonth={selectedMonth}
+          savingsNotes={savingsNotes} setSavingsNotes={setSavingsNotes} />
       )}
 
       {/* Net Worth tab */}

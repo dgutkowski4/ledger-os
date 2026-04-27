@@ -122,19 +122,23 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, income }) {
     updateLedger((l) => ({ ...l, expenses: typeof fn === "function" ? fn(l.expenses) : fn }));
 
   /* Category operations */
-  const setField  = (cat, field, v) =>
+  const setField    = (cat, field, v) =>
     setExpenses((prev) => prev.map((e) => (e.cat === cat ? { ...e, [field]: v } : e)));
-  const setNote   = (cat, note) =>
+  const setNote     = (cat, note) =>
     setExpenses((prev) => prev.map((e) => (e.cat === cat ? { ...e, note } : e)));
-  const setGroup  = (cat, g) =>
+  const setGroup    = (cat, g) =>
     setExpenses((prev) => prev.map((e) => (e.cat === cat ? { ...e, group: g } : e)));
-  const removeCat = (cat) =>
+  const renameCat   = (oldCat, newCat) =>
+    setExpenses((prev) => prev.map((e) => (e.cat === oldCat ? { ...e, cat: newCat } : e)));
+  const removeCat   = (cat) =>
     setExpenses((prev) => prev.filter((e) => e.cat !== cat));
 
+  const notes    = ledger.notes || "";
+  const setNotes = (v) => updateLedger((l) => ({ ...l, notes: v }));
+
   const addWant = () => {
-    const name = prompt("New category name?");
-    if (!name || !name.trim()) return;
-    setExpenses((prev) => [...prev, { cat: name.trim(), expected: 0, actual: 0, group: "want", note: "" }]);
+    if (expenses.some((e) => e.cat === "")) return;
+    setExpenses((prev) => [...prev, { cat: "", expected: 0, actual: 0, group: "want", note: "" }]);
   };
 
   const needs = expenses.filter((e) => e.group === "need");
@@ -154,7 +158,13 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, income }) {
     return (
       <tr key={e.cat} className="catrow">
         <td className="catrow__cat">
-          <span className={`catchip cat--${CAT_TONE[e.cat] || "other"}`}>{e.cat}</span>
+          <input
+            className={`catchip catchip--input cat--${CAT_TONE[e.cat] || "other"}`}
+            value={e.cat}
+            autoFocus={e.cat === ""}
+            placeholder="Category name"
+            onChange={(ev) => renameCat(e.cat, ev.target.value)}
+          />
           <select className="minisel" value={e.group}
             onChange={(ev) => setGroup(e.cat, ev.target.value)}>
             <option value="need">need</option>
@@ -262,6 +272,16 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, income }) {
               </tr>
             </tfoot>
           </table>
+        </Section>
+
+        {/* Notes */}
+        <Section tone="cream" eyebrow={selectedMonth} title="Notes" titleKey="exp-notes" className="grid__full">
+          <textarea
+            className="notes-area"
+            placeholder="Add any notes for this month…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
         </Section>
 
       </div>
