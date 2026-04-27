@@ -1,6 +1,7 @@
 /* App shell — tab routing, header stats, lifted ledger + month state */
 
 const MONTHS_LIST = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
@@ -24,7 +25,9 @@ function App() {
   const [accounts,       setAccounts]       = React.useState(() => lsGet("ledger_accounts",        window.SAVINGS_ACCOUNTS));
   const [nwAssets,       setNwAssets]       = React.useState(() => lsGet("ledger_nw_assets",       window.NW_ASSETS_SEED));
   const [nwLiabilities,  setNwLiabilities]  = React.useState(() => lsGet("ledger_nw_liabilities",  window.NW_LIABILITIES_SEED));
-  const [nwHistory,      setNwHistory]      = React.useState(() => lsGet("ledger_nw_history",      window.NETWORTH_HISTORY));
+  const [nwHistory,      setNwHistory]      = React.useState(() =>
+    lsGet("ledger_nw_history", window.NETWORTH_HISTORY).filter((h) => MONTHS_SHORT.includes(h.m))
+  );
   const [accent,         setAccent]         = React.useState(() => lsGet("ledger_accent",          "terra"));
   const [density,        setDensity]        = React.useState(() => lsGet("ledger_density",         "relaxed"));
   const [savingsNotes, setSavingsNotes] = React.useState(() => lsGet("ledger_savings_notes", {}));
