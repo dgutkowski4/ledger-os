@@ -48,14 +48,15 @@ function pdLsGet(key, fallback) {
   catch { return fallback; }
 }
 
-function PayDayPlanner({ month = "APRIL", savingsRows = [], plannerSavings = {}, setPlannerSavings }) {
-  const [dates, setDates] = React.useState(() => pdLsGet("ledger_pd_dates", ["4.17.26", "5.01.26"]));
-  const [pay,   setPay]   = React.useState(() => pdLsGet("ledger_pd_pay",   [2035, 2035]));
-  const [credits, setCredits] = React.useState(() => pdLsGet("ledger_pd_credits", PD_CREDITS_DEFAULT));
+function PayDayPlanner({ month = "APRIL", selectedMonth = "", savingsRows = [], plannerSavings = {}, setPlannerSavings }) {
+  const mk = (k) => `${k}_${selectedMonth}`;
+  const [dates, setDates] = React.useState(() => pdLsGet(mk("ledger_pd_dates"), ["", ""]));
+  const [pay,   setPay]   = React.useState(() => pdLsGet(mk("ledger_pd_pay"),   [0, 0]));
+  const [credits, setCredits] = React.useState(() => pdLsGet(mk("ledger_pd_credits"), PD_CREDITS_DEFAULT));
 
-  React.useEffect(() => { localStorage.setItem("ledger_pd_dates",   JSON.stringify(dates));   }, [dates]);
-  React.useEffect(() => { localStorage.setItem("ledger_pd_pay",     JSON.stringify(pay));     }, [pay]);
-  React.useEffect(() => { localStorage.setItem("ledger_pd_credits", JSON.stringify(credits)); }, [credits]);
+  React.useEffect(() => { localStorage.setItem(mk("ledger_pd_dates"),   JSON.stringify(dates));   }, [dates]);
+  React.useEffect(() => { localStorage.setItem(mk("ledger_pd_pay"),     JSON.stringify(pay));     }, [pay]);
+  React.useEffect(() => { localStorage.setItem(mk("ledger_pd_credits"), JSON.stringify(credits)); }, [credits]);
 
   /* Credit helpers — fully internal */
   const updateCredit = (id, col, patch) =>

@@ -21,7 +21,15 @@ function App() {
   const months = Object.keys(ledgers);
 
   const [savings,        setSavings]        = React.useState(() => lsGet("ledger_savings",         window.SAVINGS));
-  const [plannerSavings, setPlannerSavings] = React.useState(() => lsGet("ledger_planner_savings", {}));
+  const [allPlannerSavings, setAllPlannerSavings] = React.useState(() => lsGet("ledger_planner_savings", {}));
+  const plannerSavings = allPlannerSavings[selectedMonth] || {};
+  const setPlannerSavings = React.useCallback((updater) => {
+    setAllPlannerSavings((prev) => {
+      const cur = prev[selectedMonth] || {};
+      const next = typeof updater === "function" ? updater(cur) : updater;
+      return { ...prev, [selectedMonth]: next };
+    });
+  }, [selectedMonth]);
   const [accounts,       setAccounts]       = React.useState(() => lsGet("ledger_accounts",        window.SAVINGS_ACCOUNTS));
   const [nwAssets,       setNwAssets]       = React.useState(() => lsGet("ledger_nw_assets",       window.NW_ASSETS_SEED));
   const [nwLiabilities,  setNwLiabilities]  = React.useState(() => lsGet("ledger_nw_liabilities",  window.NW_LIABILITIES_SEED));
@@ -41,7 +49,7 @@ function App() {
   React.useEffect(() => { localStorage.setItem("ledger_ledgers",        JSON.stringify(ledgers));       }, [ledgers]);
   React.useEffect(() => { localStorage.setItem("ledger_selected_month", JSON.stringify(selectedMonth)); }, [selectedMonth]);
   React.useEffect(() => { localStorage.setItem("ledger_savings",        JSON.stringify(savings));       }, [savings]);
-  React.useEffect(() => { localStorage.setItem("ledger_planner_savings",JSON.stringify(plannerSavings));}, [plannerSavings]);
+  React.useEffect(() => { localStorage.setItem("ledger_planner_savings",JSON.stringify(allPlannerSavings));}, [allPlannerSavings]);
   React.useEffect(() => { localStorage.setItem("ledger_accounts",       JSON.stringify(accounts));      }, [accounts]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_assets",      JSON.stringify(nwAssets));      }, [nwAssets]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_liabilities", JSON.stringify(nwLiabilities)); }, [nwLiabilities]);
@@ -261,7 +269,9 @@ function App() {
           <AllocationSection savings={effectiveSavings} month={monthLabel} />
           <div className="grid__full">
             <PayDayPlanner
+              key={selectedMonth}
               month={monthLabel}
+              selectedMonth={selectedMonth}
               savingsRows={savings}
               plannerSavings={plannerSavings}
               setPlannerSavings={setPlannerSavings} />
