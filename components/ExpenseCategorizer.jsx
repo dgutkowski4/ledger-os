@@ -100,7 +100,7 @@ async function categorizeWithAI(uncertain) {
   const prompt = `You are a personal finance assistant. Categorize each transaction into exactly one of these categories:\n${BUDGET_CATEGORIES.join(", ")}\n\nCard routing hints:\n- Discover: iCloud, credit history\n- Capital One: Transportation\n- BILT: Rent, subscriptions\n- Chase Sapphire: Dining, shopping, groceries\n\nOnly use categories from the list. If unsure, mark confidence "low".\n\nTransactions:\n${JSON.stringify(uncertain.map(t => ({ id: t.id, description: t.description, amount: t.amount, card: t.card })))}\n\nRespond ONLY with a JSON array:\n[{"id":"txn-xxx","category":"Dining","confidence":"high"},...]\n\nconfidence: "high" = auto-approve | "medium"/"low" = send to review`;
   try {
     const res = await fetch("/api/anthropic", {
-      method: "POST", headers: { "Content-Type": "application/json", "x-app-token": "your-APP_SECRET-value-here",},
+      method: "POST", headers: { "Content-Type": "application/json", "x-app-token": "1b83ea4b72587929f0e03055979c11fcd86473499f144b5288d42a38baa58ee1",},
       body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
     });
     const data = await res.json();
@@ -506,7 +506,7 @@ function ExpenseCategorizer({ onSave }) {
             ? { type: "document", source: { type: "base64", media_type: upload.mediaType, data: upload.base64 } }
             : { type: "image",    source: { type: "base64", media_type: upload.mediaType, data: upload.base64 } };
           const res = await fetch("/api/anthropic", {
-            method: "POST", headers: { "Content-Type": "application/json", "x-app-token": "your-APP_SECRET-value-here",},
+            method: "POST", headers: { "Content-Type": "application/json", "x-app-token": "1b83ea4b72587929f0e03055979c11fcd86473499f144b5288d42a38baa58ee1",},
             body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: [contentBlock, { type: "text", text: `Extract all transactions from this credit card statement.\nRespond with ONLY CSV rows (no headers, no markdown) in format: date,description,amount\nPositive numbers for charges only. Skip payments and credits.\nExample: 2026-04-01,SPOTIFY USA,9.99` }] }] }),
           });
           const data = await res.json();
