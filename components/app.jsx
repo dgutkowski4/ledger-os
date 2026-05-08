@@ -159,11 +159,32 @@ function App() {
     setSelectedMonth(key);
   };
 
+  const handleCategorizerSave = (txns) => {
+    const totals = {};
+    txns.filter(t => t.confirmedCategory).forEach(t => {
+      totals[t.confirmedCategory] = (totals[t.confirmedCategory] || 0) + t.amount;
+    });
+    setLedgers((prev) => {
+      const ledger = prev[selectedMonth] || { expenses: [] };
+      const matched = new Set();
+      const updated = ledger.expenses.map((e) => {
+        if (e.cat in totals) { matched.add(e.cat); return { ...e, actual: totals[e.cat] }; }
+        return e;
+      });
+      const newRows = Object.entries(totals)
+        .filter(([cat]) => !matched.has(cat))
+        .map(([cat, actual]) => ({ cat, expected: 0, actual, group: "want", note: "imported" }));
+      return { ...prev, [selectedMonth]: { ...ledger, expenses: [...updated, ...newRows] } };
+    });
+    setTab("expenses");
+  };
+
   const tabLabel = {
-    dashboard: "Dashboard",
-    expenses:  "Monthly Expenses",
-    savings:   "Savings & Investments",
-    networth:  "Net Worth",
+    dashboard:   "Dashboard",
+    expenses:    "Monthly Expenses",
+    savings:     "Savings & Investments",
+    networth:    "Net Worth",
+    categorizer: "Expense Categorizer",
   };
 
   return (
@@ -204,6 +225,7 @@ function App() {
           { k: "expenses",  l: "Expenses"  },
           { k: "savings",   l: "Savings"   },
           { k: "networth",  l: "Net Worth" },
+          { k: "categorizer", l: "Categorizer" },
         ].map((t) => (
           <button key={t.k}
             className={`tabs__b ${tab === t.k ? "is-on" : ""}`}
@@ -296,6 +318,11 @@ function App() {
           month={monthLabel}
           selectedMonth={selectedMonth}
           savingsNotes={savingsNotes} setSavingsNotes={setSavingsNotes} />
+      )}
+
+      {/* Categorizer tab */}
+      {tab === "categorizer" && (
+        <ExpenseCategorizer onSave={handleCategorizerSave} />
       )}
 
       {/* Net Worth tab */}
