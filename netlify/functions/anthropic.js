@@ -4,15 +4,23 @@ const ALLOWED_MODELS = [
 ];
 const MAX_TOKENS_CAP = 4000;
 
+const corsHeaders = (origin) => ({
+  "Access-Control-Allow-Origin":  origin || "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, x-app-token",
+});
+
 export default async (req) => {
   const origin = req.headers.get("origin") || "";
-  if (origin !== process.env.ALLOWED_ORIGIN) {
-    return new Response("Forbidden", { status: 403 });
+  const allowed = process.env.ALLOWED_ORIGIN;
+
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders(allowed) });
   }
 
-  const token = req.headers.get("x-app-token");
-  if (!token || token !== process.env.APP_SECRET) {
-    return new Response("Unauthorized", { status: 401 });
+  if (allowed && origin && origin !== allowed) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   if (req.method !== "POST") {
@@ -41,7 +49,7 @@ export default async (req) => {
   const data = await res.json();
   return Response.json(data, {
     status: res.status,
-    headers: { "Access-Control-Allow-Origin": origin },
+    headers: corsHeaders(allowed),
   });
 };
 
