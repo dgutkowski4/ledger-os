@@ -12,15 +12,10 @@ const corsHeaders = (origin) => ({
 
 export default async (req) => {
   const origin = req.headers.get("origin") || "";
-  const allowed = process.env.ALLOWED_ORIGIN;
 
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders(allowed) });
-  }
-
-  if (allowed && origin && origin !== allowed) {
-    return new Response("Forbidden", { status: 403 });
+    return new Response(null, { status: 204, headers: corsHeaders(origin) });
   }
 
   if (req.method !== "POST") {
