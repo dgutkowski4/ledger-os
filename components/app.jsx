@@ -168,7 +168,7 @@ function App() {
       const ledger = prev[selectedMonth] || { expenses: [] };
       const matched = new Set();
       const updated = ledger.expenses.map((e) => {
-        if (e.cat in totals) { matched.add(e.cat); return { ...e, actual: totals[e.cat] }; }
+        if (e.cat in totals) { matched.add(e.cat); return { ...e, actual: (e.actual || 0) + totals[e.cat] }; }
         return e;
       });
       const newRows = Object.entries(totals)
