@@ -8,14 +8,38 @@ const fmt = (n, dec = 2) => {
 const fmt0 = (n) => fmt(n, 0);
 const pct = (n) => `${n.toFixed(0)}%`;
 
-function Section({ tone = "neutral", eyebrow, title, titleKey, right, children, className = "" }) {
+const SEC_TONES = ["cream", "sage", "sky", "lilac", "clay", "rose", "mint", "paper"];
+const SEC_TONE_BG = {
+  cream: "var(--cream)", sage: "var(--sage)", sky: "var(--sky)",
+  lilac: "var(--lilac)", clay: "var(--clay)", rose: "var(--rose)",
+  mint:  "var(--mint)",  paper: "var(--paper-2)",
+};
+
+function Section({ tone: defaultTone = "neutral", eyebrow, title, titleKey, right, children, className = "" }) {
+  const [tone, _setTone] = React.useState(() =>
+    titleKey ? (localStorage.getItem(`sec_tone_${titleKey}`) || defaultTone) : defaultTone
+  );
+  const setTone = (t) => {
+    _setTone(t);
+    if (titleKey) localStorage.setItem(`sec_tone_${titleKey}`, t);
+  };
+
   const [label, setLabel] = React.useState(() =>
     titleKey ? (localStorage.getItem(`sec_title_${titleKey}`) || title) : title
   );
   const [editing, setEditing] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
   const inputRef = React.useRef(null);
+  const pickerRef = React.useRef(null);
 
   React.useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  React.useEffect(() => {
+    if (!pickerOpen) return;
+    const handler = (e) => { if (!pickerRef.current?.contains(e.target)) setPickerOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [pickerOpen]);
 
   const commit = (v) => {
     const val = v.trim() || title;
@@ -42,6 +66,28 @@ function Section({ tone = "neutral", eyebrow, title, titleKey, right, children, 
                     <path d="M8.5 1.5 L10.5 3.5 L4 10 L1.5 10.5 L2 8 Z" />
                   </svg>
                 </button>
+              )}
+              {titleKey && (
+                <div className="sec__color-wrap" ref={pickerRef}>
+                  <button className="sec__color-btn" onClick={() => setPickerOpen(o => !o)} title="Change color">
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
+                      <circle cx="3"  cy="3"  r="2" opacity="0.9" />
+                      <circle cx="9"  cy="3"  r="2" opacity="0.7" />
+                      <circle cx="3"  cy="9"  r="2" opacity="0.6" />
+                      <circle cx="9"  cy="9"  r="2" opacity="0.8" />
+                    </svg>
+                  </button>
+                  {pickerOpen && (
+                    <div className="sec__color-picker">
+                      {SEC_TONES.map(t => (
+                        <button key={t} className={`sec__swatch${tone === t ? " is-on" : ""}`}
+                          style={{ background: SEC_TONE_BG[t] }}
+                          onClick={() => { setTone(t); setPickerOpen(false); }}
+                          title={t.charAt(0).toUpperCase() + t.slice(1)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

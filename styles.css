@@ -33,6 +33,14 @@
   --cream-2:  oklch(0.86 0.045 85);
   --cream-ink:oklch(0.38 0.05 60);
 
+  --rose:     oklch(0.93 0.03 10);
+  --rose-2:   oklch(0.85 0.055 10);
+  --rose-ink: oklch(0.38 0.07 10);
+
+  --mint:     oklch(0.92 0.04 168);
+  --mint-2:   oklch(0.83 0.065 168);
+  --mint-ink: oklch(0.38 0.07 168);
+
   --accent:      oklch(0.55 0.09 45);  /* warm terracotta, default */
   --accent-soft: oklch(0.88 0.045 45);
 
@@ -126,6 +134,8 @@ html, body {
 .sec--lilac { background: var(--lilac); }
 .sec--cream { background: var(--cream); }
 .sec--paper { background: var(--paper-2); }
+.sec--rose  { background: var(--rose); }
+.sec--mint  { background: var(--mint); }
 
 .sec__hd {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -156,6 +166,36 @@ html, body {
 }
 .sec__hd:hover .sec__edit-btn { opacity: 1; }
 .sec__edit-btn:hover { color: var(--accent); background: color-mix(in oklch, var(--accent), transparent 90%); }
+
+/* Color picker */
+.sec__color-wrap { position: relative; display: inline-flex; }
+.sec__color-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--ink-3); padding: 3px 4px; border-radius: 5px;
+  opacity: 0; transition: opacity 0.15s, color 0.15s;
+  display: inline-flex; align-items: center; flex-shrink: 0;
+}
+.sec__hd:hover .sec__color-btn { opacity: 1; }
+.sec__color-btn:hover { color: var(--accent); background: color-mix(in oklch, var(--accent), transparent 90%); }
+.sec__color-picker {
+  position: absolute;
+  top: calc(100% + 8px); left: 0;
+  display: flex; gap: 7px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px -6px rgba(60,40,20,0.18);
+  z-index: 100;
+}
+.sec__swatch {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid color-mix(in oklch, var(--ink), transparent 82%);
+  cursor: pointer; padding: 0;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.sec__swatch:hover { transform: scale(1.2); }
+.sec__swatch.is-on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--ink); transform: scale(1.1); }
 .sec__title-input {
   font-family: var(--f-disp); font-weight: 500; font-size: 22px;
   letter-spacing: -0.005em; color: var(--ink);
