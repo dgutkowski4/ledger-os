@@ -20,6 +20,129 @@ const NW_LIABILITIES_SEED = [
   { id: "l4", name: "Student Loans",  category: "Student Loan", value: 3235.00 },
 ];
 
+function CompoundCalculator({ initialPrincipal = 0 }) {
+  const [principal,   setPrincipal]   = React.useState(initialPrincipal);
+  const [monthly,     setMonthly]     = React.useState(500);
+  const [rate,        setRate]        = React.useState(7);
+  const [years,       setYears]       = React.useState(20);
+  const [compounding, setCompounding] = React.useState("monthly");
+
+  const n = compounding === "monthly" ? 12 : 1;
+  const r = rate / 100 / n;
+
+  const balanceAt = (yr) => {
+    const periods = n * yr;
+    if (r === 0) return principal + monthly * 12 * yr;
+    const growth = Math.pow(1 + r, periods);
+    return principal * growth + monthly * (compounding === "monthly" ? 1 : 12) * (growth - 1) / r;
+  };
+
+  const future        = balanceAt(years);
+  const totalContribs = principal + monthly * 12 * years;
+  const totalInterest = future - totalContribs;
+  const gain          = totalContribs > 0 ? ((totalInterest / totalContribs) * 100).toFixed(0) : 0;
+
+  const step = Math.max(1, Math.round(years / 6));
+  const chartData = Array.from({ length: years + 1 }, (_, yr) => ({
+    m: yr % step === 0 ? (yr === 0 ? "Now" : `Yr ${yr}`) : "",
+    v: Math.round(balanceAt(yr)),
+  }));
+
+  const lbl = {
+    fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase",
+    color: "var(--ink-3)", fontFamily: "var(--f-body)",
+  };
+  const selStyle = {
+    fontFamily: "var(--f-num)", fontSize: 13, color: "var(--ink)",
+    background: "color-mix(in oklch, var(--ink), transparent 96%)",
+    border: "1px dashed color-mix(in oklch, var(--ink), transparent 78%)",
+    borderRadius: 6, padding: "3px 6px", outline: "none",
+  };
+
+  return (
+    <Section tone="lilac" eyebrow="Forecast" title="Compound Interest Calculator" titleKey="compound-calc" className="grid__full">
+
+      {/* Result */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+        flexWrap: "wrap", gap: 20, marginBottom: 28 }}>
+        <div className="nw__big">
+          <span className="nw__lbl">Balance after {years} year{years !== 1 ? "s" : ""}</span>
+          <span className="nw__v pos">{fmt0(future)}</span>
+          <span className="nw__sub">
+            <span className="pos">{fmt0(Math.max(0, totalInterest))}</span>
+            <span className="muted"> interest · {gain}% gain on contributions</span>
+          </span>
+        </div>
+        <div className="nw__kv" style={{ marginTop: 8 }}>
+          <div>
+            <span className="nw__lbl">Total contributed</span>
+            <span className="nw__kvv">{fmt0(totalContribs)}</span>
+          </div>
+          <div>
+            <span className="nw__lbl">Interest earned</span>
+            <span className="nw__kvv pos">{fmt0(Math.max(0, totalInterest))}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Inputs — table style, no box cards */}
+      <table className="catbl" style={{ marginBottom: 24 }}>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th className="num">Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="catrow">
+            <td style={lbl}>Starting amount</td>
+            <td className="num">
+              <input type="number" className="ed-num" style={{ width: 120 }}
+                value={principal}
+                onChange={e => setPrincipal(parseFloat(e.target.value) || 0)} />
+            </td>
+          </tr>
+          <tr className="catrow">
+            <td style={lbl}>Monthly contribution</td>
+            <td className="num">
+              <input type="number" className="ed-num" style={{ width: 120 }}
+                value={monthly}
+                onChange={e => setMonthly(parseFloat(e.target.value) || 0)} />
+            </td>
+          </tr>
+          <tr className="catrow">
+            <td style={lbl}>Annual return (%)</td>
+            <td className="num">
+              <input type="number" step="0.1" className="ed-num" style={{ width: 120 }}
+                value={rate}
+                onChange={e => setRate(parseFloat(e.target.value) || 0)} />
+            </td>
+          </tr>
+          <tr className="catrow">
+            <td style={lbl}>Time horizon (years)</td>
+            <td className="num">
+              <input type="number" min="1" max="60" className="ed-num" style={{ width: 120 }}
+                value={years}
+                onChange={e => setYears(Math.max(1, Math.min(60, parseInt(e.target.value) || 1)))} />
+            </td>
+          </tr>
+          <tr className="catrow">
+            <td style={lbl}>Compounding</td>
+            <td className="num">
+              <select value={compounding} onChange={e => setCompounding(e.target.value)} style={selStyle}>
+                <option value="monthly">Monthly</option>
+                <option value="annually">Annually</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <SoftLine data={chartData} height={220} />
+    </Section>
+  );
+}
+
 function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history = window.NETWORTH_HISTORY }) {
   const totalAssets      = assets.reduce((s, a) => s + a.value, 0);
   const totalLiabilities = liabilities.reduce((s, l) => s + l.value, 0);
@@ -78,7 +201,7 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history 
         </div>
       </div>
 
-      <div className="xgrid">
+      <LayoutGrid id="networth">
         {/* Net Worth history — full width, at top, live data */}
         <Section tone="cream" eyebrow="History" title="Net Worth over time" titleKey="nw-history"
           className="grid__full"
@@ -207,7 +330,12 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history 
           </table>
           <button className="btn-ghost" style={{ marginTop: 12 }} onClick={addLiability}>+ Add liability</button>
         </Section>
-      </div>
+
+        <CompoundCalculator className="grid__full" titleKey="compound-calc" initialPrincipal={
+          assets.filter(a => ["Retirement", "Investments", "Crypto"].includes(a.category))
+                .reduce((s, a) => s + a.value, 0)
+        } />
+      </LayoutGrid>
     </>
   );
 }

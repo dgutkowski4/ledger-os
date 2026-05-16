@@ -63,6 +63,49 @@ function App() {
   const currentLedger = ledgers[selectedMonth] || { expenses: [] };
   const expenses      = currentLedger.expenses;
 
+  /* Undo / redo for expenses — lifted here so xbar buttons can reach it */
+  const expHistoryRef = React.useRef([expenses]);
+  const [expHistoryIdx, setExpHistoryIdx] = React.useState(0);
+  React.useEffect(() => { expHistoryRef.current = [expenses]; setExpHistoryIdx(0); }, [selectedMonth]);
+
+  const applyExpenses = (next) => {
+    const stack = expHistoryRef.current.slice(0, expHistoryIdx + 1).concat([next]);
+    expHistoryRef.current = stack;
+    setExpHistoryIdx(stack.length - 1);
+    setLedgers((prev) => ({ ...prev, [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: next } }));
+  };
+
+  const undoExpenses = React.useCallback(() => {
+    const h = expHistoryRef.current;
+    if (expHistoryIdx <= 0) return;
+    const idx = expHistoryIdx - 1;
+    setExpHistoryIdx(idx);
+    setLedgers((prev) => ({ ...prev, [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: h[idx] } }));
+  }, [expHistoryIdx, selectedMonth]);
+
+  const redoExpenses = React.useCallback(() => {
+    const h = expHistoryRef.current;
+    if (expHistoryIdx >= h.length - 1) return;
+    const idx = expHistoryIdx + 1;
+    setExpHistoryIdx(idx);
+    setLedgers((prev) => ({ ...prev, [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: h[idx] } }));
+  }, [expHistoryIdx, selectedMonth]);
+
+  const canUndo = expHistoryIdx > 0;
+  const canRedo = expHistoryIdx < expHistoryRef.current.length - 1;
+
+  React.useEffect(() => {
+    const undoFn = tab === "savings" ? undoSavings : tab === "networth" ? undoNw : undoExpenses;
+    const redoFn = tab === "savings" ? redoSavings : tab === "networth" ? redoNw : redoExpenses;
+    const handler = (e) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undoFn(); }
+      if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); redoFn(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [undoExpenses, redoExpenses, undoSavings, redoSavings, undoNw, redoNw, tab]);
+
   /* Short month label for section eyebrows, e.g. "APRIL" */
   const monthLabel = selectedMonth.split(" ")[0].toUpperCase();
 
@@ -70,27 +113,105 @@ function App() {
   const liveNetWorth = nwAssets.reduce((s, a) => s + a.value, 0)
                      - nwLiabilities.reduce((s, l) => s + l.value, 0);
 
-  /* Per-month savings paid amounts — stored inside the ledger, not in base savings.
-     effectiveSavings = base savings structure merged with current month's paid amounts.
-     Fallback to base savings.paid1/paid2 for initial April data (migration). */
-  const monthSavingsPaid = currentLedger.savingsPaid || {};
+  /* Per-month savings paid amounts + targets — stored inside the ledger, not in base savings. */
+  const monthSavingsPaid    = currentLedger.savingsPaid    || {};
+  const monthSavingsTargets = currentLedger.savingsTargets || {};
   const effectiveSavings = savings.map((r) => ({
     ...r,
-    paid1: r.id in monthSavingsPaid ? monthSavingsPaid[r.id].paid1 : r.paid1,
-    paid2: r.id in monthSavingsPaid ? monthSavingsPaid[r.id].paid2 : r.paid2,
+    paid1:  r.id in monthSavingsPaid    ? monthSavingsPaid[r.id].paid1  : r.paid1,
+    paid2:  r.id in monthSavingsPaid    ? monthSavingsPaid[r.id].paid2  : r.paid2,
+    target: r.id in monthSavingsTargets ? monthSavingsTargets[r.id]     : r.target,
   }));
 
-  /* Setter: structural changes → base savings; paid amounts → current ledger */
+  /* Setter: structural changes → base savings; paid + targets → current ledger */
   const setEffectiveSavings = (updater) => {
     const next = typeof updater === "function" ? updater(effectiveSavings) : updater;
     setSavings(next.map((r) => ({ ...r, paid1: 0, paid2: 0 })));
-    const paid = {};
-    next.forEach((r) => { paid[r.id] = { paid1: r.paid1, paid2: r.paid2 }; });
+    const paid = {}, targets = {};
+    next.forEach((r) => {
+      paid[r.id]    = { paid1: r.paid1, paid2: r.paid2 };
+      targets[r.id] = r.target;
+    });
     setLedgers((prev) => ({
       ...prev,
-      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), savingsPaid: paid },
+      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), savingsPaid: paid, savingsTargets: targets },
     }));
   };
+
+  /* Undo / redo for savings */
+  const savHistoryRef = React.useRef([effectiveSavings]);
+  const [savHistoryIdx, setSavHistoryIdx] = React.useState(0);
+  React.useEffect(() => { savHistoryRef.current = [effectiveSavings]; setSavHistoryIdx(0); }, [selectedMonth]);
+
+  const applySavings = (nextOrFn) => {
+    const next = typeof nextOrFn === "function" ? nextOrFn(effectiveSavings) : nextOrFn;
+    const stack = savHistoryRef.current.slice(0, savHistoryIdx + 1).concat([next]);
+    savHistoryRef.current = stack;
+    setSavHistoryIdx(stack.length - 1);
+    setEffectiveSavings(next);
+  };
+
+  const undoSavings = React.useCallback(() => {
+    const h = savHistoryRef.current;
+    if (savHistoryIdx <= 0) return;
+    const idx = savHistoryIdx - 1;
+    setSavHistoryIdx(idx);
+    setEffectiveSavings(h[idx]);
+  }, [savHistoryIdx, selectedMonth]);
+
+  const redoSavings = React.useCallback(() => {
+    const h = savHistoryRef.current;
+    if (savHistoryIdx >= h.length - 1) return;
+    const idx = savHistoryIdx + 1;
+    setSavHistoryIdx(idx);
+    setEffectiveSavings(h[idx]);
+  }, [savHistoryIdx, selectedMonth]);
+
+  const canSavUndo = savHistoryIdx > 0;
+  const canSavRedo = savHistoryIdx < savHistoryRef.current.length - 1;
+
+  /* Undo / redo for Net Worth (assets + liabilities tracked together) */
+  const nwEditHistoryRef = React.useRef([{ assets: nwAssets, liabilities: nwLiabilities }]);
+  const [nwEditHistoryIdx, setNwEditHistoryIdx] = React.useState(0);
+
+  const applyNwAssets = (assetsOrFn) => {
+    const assets = typeof assetsOrFn === "function" ? assetsOrFn(nwAssets) : assetsOrFn;
+    const snap = { assets, liabilities: nwLiabilities };
+    const stack = nwEditHistoryRef.current.slice(0, nwEditHistoryIdx + 1).concat([snap]);
+    nwEditHistoryRef.current = stack;
+    setNwEditHistoryIdx(stack.length - 1);
+    setNwAssets(assets);
+  };
+
+  const applyNwLiabilities = (liabsOrFn) => {
+    const liabilities = typeof liabsOrFn === "function" ? liabsOrFn(nwLiabilities) : liabsOrFn;
+    const snap = { assets: nwAssets, liabilities };
+    const stack = nwEditHistoryRef.current.slice(0, nwEditHistoryIdx + 1).concat([snap]);
+    nwEditHistoryRef.current = stack;
+    setNwEditHistoryIdx(stack.length - 1);
+    setNwLiabilities(liabilities);
+  };
+
+  const undoNw = React.useCallback(() => {
+    const h = nwEditHistoryRef.current;
+    if (nwEditHistoryIdx <= 0) return;
+    const idx = nwEditHistoryIdx - 1;
+    setNwEditHistoryIdx(idx);
+    setNwAssets(h[idx].assets);
+    setNwLiabilities(h[idx].liabilities);
+  }, [nwEditHistoryIdx]);
+
+  const redoNw = React.useCallback(() => {
+    const h = nwEditHistoryRef.current;
+    if (nwEditHistoryIdx >= h.length - 1) return;
+    const idx = nwEditHistoryIdx + 1;
+    setNwEditHistoryIdx(idx);
+    setNwAssets(h[idx].assets);
+    setNwLiabilities(h[idx].liabilities);
+  }, [nwEditHistoryIdx]);
+
+  const canNwUndo = nwEditHistoryIdx > 0;
+  const canNwRedo = nwEditHistoryIdx < nwEditHistoryRef.current.length - 1;
 
   /* Header derived totals */
   const incomeTotal  = window.INCOME.reduce((s, i) => s + i.amount, 0);
@@ -137,9 +258,12 @@ function App() {
     if (!key) return;
     if (ledgers[key]) { setSelectedMonth(key); return; }
 
-    /* Snapshot current month's paid amounts into ledger before switching */
-    const snapshotPaid = {};
-    effectiveSavings.forEach((r) => { snapshotPaid[r.id] = { paid1: r.paid1, paid2: r.paid2 }; });
+    /* Snapshot current month's paid amounts + targets into ledger before switching */
+    const snapshotPaid = {}, snapshotTargets = {};
+    effectiveSavings.forEach((r) => {
+      snapshotPaid[r.id]    = { paid1: r.paid1, paid2: r.paid2 };
+      snapshotTargets[r.id] = r.target;
+    });
 
     /* Append new NW history entry for the new month */
     const newMonthShort = key.split(" ")[0].slice(0, 3);
@@ -151,8 +275,8 @@ function App() {
 
     setLedgers((prev) => ({
       ...prev,
-      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), savingsPaid: snapshotPaid },
-      [key]: { expenses: expenses.map((e) => ({ ...e, actual: 0 })), savingsPaid: {} },
+      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), savingsPaid: snapshotPaid, savingsTargets: snapshotTargets },
+      [key]: { expenses: expenses.map((e) => ({ ...e, actual: 0 })), savingsPaid: {}, savingsTargets: snapshotTargets },
     }));
     /* Clear base savings paid amounts now that they're in the ledger */
     setSavings((prev) => prev.map((r) => ({ ...r, paid1: 0, paid2: 0 })));
@@ -242,10 +366,10 @@ function App() {
         </button>
       </nav>
 
-      {/* Shared month selector — all tabs except Net Worth */}
-      {tab !== "networth" && (
-        <div className="xbar">
-          <div className="xbar__l">
+      {/* Toolbar — month selector + undo/redo for all tabs */}
+      <div className="xbar">
+        <div className="xbar__l">
+          {tab !== "networth" && (<>
             <span className="xbar__lbl">Month</span>
             <div className="month-chips">
               {months.map((m) => (
@@ -259,37 +383,49 @@ function App() {
                 </span>
               ))}
             </div>
-          </div>
-          <div className="xbar__r">
-            {addingMonth ? (
-              <input
-                className="month-chip-input"
-                autoFocus
-                value={newMonthDraft}
-                placeholder="e.g. May 2026"
-                onChange={(e) => setNewMonthDraft(e.target.value)}
-                onBlur={commitNewMonth}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") commitNewMonth();
-                  if (e.key === "Escape") { setAddingMonth(false); setNewMonthDraft(""); }
-                }}
-              />
-            ) : (
-              <button className="btn-ghost" onClick={startAddMonth}>+ New Month</button>
-            )}
-          </div>
+          </>)}
         </div>
-      )}
+        <div className="xbar__r" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {(() => {
+            const u = tab === "savings" ? undoSavings : tab === "networth" ? undoNw : undoExpenses;
+            const r = tab === "savings" ? redoSavings : tab === "networth" ? redoNw : redoExpenses;
+            const cu = tab === "savings" ? canSavUndo : tab === "networth" ? canNwUndo : canUndo;
+            const cr = tab === "savings" ? canSavRedo : tab === "networth" ? canNwRedo : canRedo;
+            return (<>
+              <button className="btn-ghost" style={{ fontSize: 12, padding: "4px 12px", opacity: cu ? 1 : 0.4 }}
+                disabled={!cu} onClick={u} title="Undo (⌘Z)">↩ Undo</button>
+              <button className="btn-ghost" style={{ fontSize: 12, padding: "4px 12px", opacity: cr ? 1 : 0.4 }}
+                disabled={!cr} onClick={r} title="Redo (⌘⇧Z)">↪ Redo</button>
+            </>);
+          })()}
+          {tab !== "networth" && (addingMonth ? (
+            <input
+              className="month-chip-input"
+              autoFocus
+              value={newMonthDraft}
+              placeholder="e.g. May 2026"
+              onChange={(e) => setNewMonthDraft(e.target.value)}
+              onBlur={commitNewMonth}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitNewMonth();
+                if (e.key === "Escape") { setAddingMonth(false); setNewMonthDraft(""); }
+              }}
+            />
+          ) : (
+            <button className="btn-ghost" onClick={startAddMonth}>+ New Month</button>
+          ))}
+        </div>
+      </div>
 
       {/* Dashboard */}
       {tab === "dashboard" && (
-        <div className="grid">
-          <div className="grid__full">
+        <LayoutGrid id="dashboard" cols="1.2fr 1fr">
+          <div key="dash-nw" className="grid__full">
             <NetWorthSection history={nwHistory} netWorth={liveNetWorth} month={monthLabel} />
           </div>
-          <SpendBreakdownSection expenses={expenses} month={monthLabel} />
-          <AllocationSection savings={effectiveSavings} month={monthLabel} />
-          <div className="grid__full">
+          <SpendBreakdownSection key="dash-spend" expenses={expenses} month={monthLabel} />
+          <AllocationSection key="dash-alloc" savings={effectiveSavings} month={monthLabel} />
+          <div key="dash-planner" className="grid__full">
             <PayDayPlanner
               key={selectedMonth}
               month={monthLabel}
@@ -298,7 +434,7 @@ function App() {
               plannerSavings={plannerSavings}
               setPlannerSavings={setPlannerSavings} />
           </div>
-        </div>
+        </LayoutGrid>
       )}
 
       {/* Expenses tab */}
@@ -307,14 +443,19 @@ function App() {
           ledgers={ledgers}
           setLedgers={setLedgers}
           selectedMonth={selectedMonth}
-          income={incomeTotal} />
+          income={incomeTotal}
+          applyExpenses={applyExpenses}
+          undo={undoExpenses}
+          redo={redoExpenses}
+          canUndo={canUndo}
+          canRedo={canRedo} />
       )}
 
       {/* Savings tab */}
       {tab === "savings" && (
         <SavingsPage
           accounts={accounts} setAccounts={setAccounts}
-          savings={effectiveSavings} setSavings={setEffectiveSavings}
+          savings={effectiveSavings} setSavings={applySavings}
           month={monthLabel}
           selectedMonth={selectedMonth}
           savingsNotes={savingsNotes} setSavingsNotes={setSavingsNotes} />
@@ -328,8 +469,8 @@ function App() {
       {/* Net Worth tab */}
       {tab === "networth" && (
         <NetWorthPage
-          assets={nwAssets}           setAssets={setNwAssets}
-          liabilities={nwLiabilities} setLiabilities={setNwLiabilities}
+          assets={nwAssets}           setAssets={applyNwAssets}
+          liabilities={nwLiabilities} setLiabilities={applyNwLiabilities}
           history={nwHistory} />
       )}
 

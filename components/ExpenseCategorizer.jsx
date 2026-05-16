@@ -203,7 +203,7 @@ function UploadPhase({ onFilesReady }) {
 
   return (
     <div style={{ maxWidth: 520, margin: "0 auto" }}>
-      <p style={{ color: T.ink3, fontSize: 13, fontFamily: T.fBody, marginBottom: 20, lineHeight: 1.6 }}>
+      <p style={{ color: T.ink3, fontSize: 13, fontFa1mily: T.fBody, marginBottom: 20, lineHeight: 1.6 }}>
         Upload one or more statements. Known merchants and anything confirmed before are auto-approved.
       </p>
 

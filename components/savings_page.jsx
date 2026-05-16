@@ -28,7 +28,6 @@ function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRI
   const totalPaid     = savings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
   const totalTarget   = savings.reduce((s, r) => s + r.target, 0);
   const totalRemaining = Math.max(0, totalTarget - totalPaid);
-  const annualGoal    = savings.reduce((s, r) => s + r.target * 12, 0);
 
   /* Allocation by type from paid amounts — falls back to targets if nothing paid yet */
   const usePaid = totalPaid > 0;
@@ -62,14 +61,9 @@ function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRI
           <span className={`xsum__v ${totalRemaining === 0 ? "pos" : ""}`}>{totalRemaining === 0 ? "✓ Done" : fmt0(totalRemaining)}</span>
           <span className="xsum__sub"></span>
         </div>
-        <div className="xsum__cell">
-          <span className="xsum__l">Annual goal</span>
-          <span className="xsum__v">{fmt0(annualGoal)}</span>
-          <span className="xsum__sub"></span>
-        </div>
       </div>
 
-      <div className="xgrid">
+      <LayoutGrid id="savings">
         {/* Allocation donut — driven by this month's paid amounts */}
         <Section tone="sage" eyebrow={month} title="Allocation" titleKey="allocation-savings"
           right={<span className="sec__range">{usePaid ? "by amount paid" : "by target"}</span>}>
@@ -144,7 +138,7 @@ function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRI
         </Section>
 
         {/* Monthly pay-day tracking */}
-        <div className="grid__full">
+        <div key="sav-monthly" className="grid__full">
           <SavingsSection savings={savings} setSavings={setSavings} month={month} />
         </div>
 
@@ -157,7 +151,7 @@ function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRI
             onChange={(e) => setNotes(e.target.value)}
           />
         </Section>
-      </div>
+      </LayoutGrid>
     </>
   );
 }

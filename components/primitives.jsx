@@ -221,4 +221,149 @@ function PixelSprite() {
   );
 }
 
-Object.assign(window, { fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, PixelSprite });
+/* Sortable + resizable grid.
+   - Drag the grip (top-left, visible on hover) to reorder sections iPhone-style:
+     other sections slide in real time as you drag over them.
+   - Drag the resize handle (appears at the shared edge between two half-width
+     sections on hover) to adjust the column split — both sections resize together.
+   Layout order and column ratio are persisted to localStorage keyed by id. */
+function LayoutGrid({ id, children, cols = "1fr 1fr" }) {
+  /* ── Persistent layout (order + full-width flag per section) ── */
+  const [layout, setLayout] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(`layout_${id}`)) || {}; }
+    catch { return {}; }
+  });
+  const saveLayout = (next) => { setLayout(next); localStorage.setItem(`layout_${id}`, JSON.stringify(next)); };
+
+  /* ── Column ratio (how the two columns share the row width) ── */
+  const initRatio = (() => {
+    try { const s = localStorage.getItem(`layout_cols_${id}`); if (s) return parseFloat(s); } catch {}
+    const parts = cols.replace(/fr/g, "").trim().split(/\s+/).map(parseFloat);
+    return parts.length === 2 ? parts[0] / (parts[0] + parts[1]) : 0.5;
+  })();
+  const [colRatio, _setColRatio] = React.useState(initRatio);
+  const colRatioRef = React.useRef(colRatio);
+  const setColRatio = (r) => { colRatioRef.current = r; _setColRatio(r); };
+  const gridRef = React.useRef(null);
+
+  /* ── Drag-to-reorder state ── */
+  const [dragKey, setDragKey]           = React.useState(null);
+  const [previewOrder, setPreviewOrder] = React.useState(null); // { key: displayIndex }
+
+  /* ── Auto-scroll while dragging near viewport edges ── */
+  const dragYRef  = React.useRef(null);
+  const animRef   = React.useRef(null);
+
+  const stopScroll = () => {
+    dragYRef.current = null;
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+  };
+
+  const scrollLoop = () => {
+    const y = dragYRef.current;
+    if (y === null) { animRef.current = null; return; }
+    const zone = 100, speed = 14;
+    if (y < zone)
+      window.scrollBy(0, -speed * (1 - y / zone));
+    else if (y > window.innerHeight - zone)
+      window.scrollBy(0,  speed * (1 - (window.innerHeight - y) / zone));
+    animRef.current = requestAnimationFrame(scrollLoop);
+  };
+
+  /* ── Build item list ── */
+  const raw = React.Children.toArray(children);
+  const baseItems = raw.map((child, i) => {
+    const k = child.props?.titleKey || child.key || String(i);
+    const initFull = !!(child.props?.className?.includes("grid__full"));
+    const saved = layout[k];
+    /* Always use JSX className as source of truth for full-width — ignore any stale saved value */
+    return { key: k, child, order: saved?.order ?? i, full: initFull };
+  });
+  baseItems.sort((a, b) => a.order - b.order);
+
+  /* During drag show preview order; on drop commit it */
+  const displayItems = previewOrder
+    ? baseItems.slice().sort((a, b) => (previewOrder[a.key] ?? 999) - (previewOrder[b.key] ?? 999))
+    : baseItems;
+
+  /* Assign column position: full-width items = null, half-width alternate 0/1 */
+  let col = 0;
+  const itemsWithCol = displayItems.map((item) => {
+    if (item.full) { col = 0; return { ...item, colPos: null }; }
+    const colPos = col % 2;
+    col++;
+    return { ...item, colPos };
+  });
+
+  /* ── DnD handlers ── */
+  const onDragStart = (e, key) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDragKey(key);
+  };
+
+  const onDragOver = (e, overKey) => {
+    e.preventDefault();
+    /* Update scroll position tracker and start loop if not running */
+    dragYRef.current = e.clientY;
+    if (!animRef.current) animRef.current = requestAnimationFrame(scrollLoop);
+    if (!dragKey || dragKey === overKey) return;
+    const keys = displayItems.map(i => i.key);
+    const from = keys.indexOf(dragKey), to = keys.indexOf(overKey);
+    const slid = [...keys];
+    slid.splice(from, 1);
+    slid.splice(to, 0, dragKey);
+    const order = {};
+    slid.forEach((k, i) => { order[k] = i; });
+    setPreviewOrder(order);
+  };
+
+  const commitDrag = () => {
+    stopScroll();
+    if (previewOrder) {
+      const next = { ...layout };
+      Object.entries(previewOrder).forEach(([k, i]) => {
+        next[k] = { ...(next[k] || {}), order: i };
+      });
+      saveLayout(next);
+    }
+    setDragKey(null);
+    setPreviewOrder(null);
+  };
+
+  /* ── Icons ── */
+  const GripIcon = () => (
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" style={{ pointerEvents: "none" }}>
+      {[2, 7, 12].flatMap(cy => [2, 8].map(cx =>
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.5" />
+      ))}
+    </svg>
+  );
+
+  return (
+    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: `${colRatio}fr ${1 - colRatio}fr`, gap: 28 }}>
+      {itemsWithCol.map(({ key, child, full }) => (
+        <div
+          key={key}
+          className={`layout-item${full ? " layout-item--full" : ""}`}
+          style={{ opacity: dragKey === key ? 0.45 : 1, transition: "opacity 0.15s" }}
+          onDragOver={(e) => onDragOver(e, key)}
+          onDrop={(e) => { e.preventDefault(); commitDrag(); }}
+        >
+          {child}
+
+          {/* Drag grip — top-right, appears on hover */}
+          <div className="layout-controls">
+            <div className="layout-grip" draggable
+              onDragStart={(e) => onDragStart(e, key)}
+              onDragEnd={commitDrag}
+              title="Drag to reorder">
+              <GripIcon />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+Object.assign(window, { fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, PixelSprite, LayoutGrid });

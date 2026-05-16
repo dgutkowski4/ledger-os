@@ -111,15 +111,17 @@ function nextMonthName(current) {
   return `${MONTHS[idx + 1]} ${parts[1]}`;
 }
 
-function ExpensesPage({ ledgers, setLedgers, selectedMonth, income }) {
+function ExpensesPage({ ledgers, setLedgers, selectedMonth, income, applyExpenses, undo, redo, canUndo, canRedo }) {
   const ledger   = ledgers[selectedMonth] || { expenses: [] };
   const expenses = ledger.expenses;
 
   const updateLedger = (fn) =>
     setLedgers((prev) => ({ ...prev, [selectedMonth]: fn(prev[selectedMonth]) }));
 
-  const setExpenses = (fn) =>
-    updateLedger((l) => ({ ...l, expenses: typeof fn === "function" ? fn(l.expenses) : fn }));
+  const setExpenses = (fn) => {
+    const next = typeof fn === "function" ? fn(expenses) : fn;
+    applyExpenses(next);
+  };
 
   /* Category operations */
   const setField    = (cat, field, v) =>
@@ -196,7 +198,7 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, income }) {
     <>
       <MonthTotalsStrip expected={sumExp} actual={sumAct} income={income} />
 
-      <div className="xgrid">
+      <LayoutGrid id="expenses">
 
         {/* Breakdown donut */}
         <Section tone="cream" eyebrow="Where it went" title="Breakdown" titleKey="exp-breakdown"
@@ -285,7 +287,7 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, income }) {
           />
         </Section>
 
-      </div>
+      </LayoutGrid>
     </>
   );
 }

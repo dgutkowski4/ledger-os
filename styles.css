@@ -504,6 +504,49 @@ html, body {
 }
 .xgrid .grid__full { grid-column: 1 / -1; }
 
+/* === Layout Grid (drag-to-reorder) === */
+.layout-item { position: relative; }
+.layout-item--full { grid-column: 1 / -1; }
+
+/* Controls row — appears top-right of each section on hover */
+.layout-controls {
+  position: absolute;
+  top: 8px; right: 8px;
+  display: flex; align-items: center; gap: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  z-index: 20;
+}
+.layout-item:hover .layout-controls { opacity: 1; pointer-events: auto; }
+
+/* Width-toggle button */
+.layout-ctrl-btn {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+  background: var(--paper-3);
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.layout-ctrl-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Drag grip */
+.layout-grip {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab;
+  color: var(--ink-3);
+  border-radius: 5px;
+  background: var(--paper-3);
+  border: 1px solid var(--line-2);
+}
+.layout-grip:hover { background: color-mix(in oklch, var(--ink), transparent 88%); color: var(--ink); }
+.layout-grip:active { cursor: grabbing; }
+
+
 /* Category donut */
 :root {
   --don-0: oklch(0.65 0.11 45);
