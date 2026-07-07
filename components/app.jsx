@@ -36,6 +36,27 @@ function App() {
     lsGet("ledger_selected_month", DEFAULT_MONTH)
   );
   const months = Object.keys(ledgers);
+  const activeMonths   = months.filter((m) => !ledgers[m]?.archived);
+  const archivedMonths = months.filter((m) => ledgers[m]?.archived);
+  const [archOpen, setArchOpen] = React.useState(false);
+  const archRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!archOpen) return;
+    const handler = (e) => { if (!archRef.current?.contains(e.target)) setArchOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [archOpen]);
+
+  /* Chip labels show the year once more than one year is in play, e.g. "Jul ’27" */
+  const chipYears = new Set(
+    activeMonths.concat(ledgers[selectedMonth]?.archived ? [selectedMonth] : [])
+      .map((m) => m.split(" ")[1]).filter(Boolean)
+  );
+  const chipLabel = (m) => {
+    const [name, year] = m.split(" ");
+    return chipYears.size > 1 && year ? `${name.slice(0, 3)} ’${year.slice(2)}` : name;
+  };
 
   const [savings,        setSavings]        = React.useState(() => lsGet("ledger_savings",         window.SAVINGS));
   const [allPlannerSavings, setAllPlannerSavings] = React.useState(() => lsGet("ledger_planner_savings", {}));
@@ -52,7 +73,6 @@ function App() {
   const [nwHistory,      setNwHistory]      = React.useState(() =>
     lsGet("ledger_nw_history", window.NETWORTH_HISTORY).filter((h) => MONTHS_SHORT.includes(h.m))
   );
-  const [accent,         setAccent]         = React.useState(() => lsGet("ledger_accent",          "terra"));
   const [density,        setDensity]        = React.useState(() => lsGet("ledger_density",         "relaxed"));
   const [savingsNotes, setSavingsNotes] = React.useState(() => lsGet("ledger_savings_notes", {}));
   const [tweaksOpen, setTweaksOpen] = React.useState(false);
@@ -69,10 +89,8 @@ function App() {
   React.useEffect(() => { localStorage.setItem("ledger_nw_assets",      JSON.stringify(nwAssets));      }, [nwAssets]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_liabilities", JSON.stringify(nwLiabilities)); }, [nwLiabilities]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_history",     JSON.stringify(nwHistory));     }, [nwHistory]);
-  React.useEffect(() => { localStorage.setItem("ledger_accent",         JSON.stringify(accent));        }, [accent]);
   React.useEffect(() => { localStorage.setItem("ledger_density",        JSON.stringify(density));       }, [density]);
   React.useEffect(() => { localStorage.setItem("ledger_savings_notes",  JSON.stringify(savingsNotes));  }, [savingsNotes]);
-  React.useEffect(() => { window.applyAccent(accent); }, [accent]);
 
   /* Derived from current ledger */
   const currentLedger = ledgers[selectedMonth] || { expenses: [] };
@@ -251,6 +269,19 @@ function App() {
   const leftover     = incomeTotal - actualTotal;
   const savingsTotal = effectiveSavings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
 
+  /* Archive / restore — archived months keep their data (and stay in exports)
+     but leave the chip bar; they live in the "Archived" dropdown. */
+  const archiveMonth = (key) => {
+    setLedgers((prev) => ({ ...prev, [key]: { ...(prev[key] || { expenses: [] }), archived: true } }));
+    if (key === selectedMonth) {
+      const nextActive = activeMonths.filter((m) => m !== key);
+      if (nextActive.length) setSelectedMonth(nextActive[nextActive.length - 1]);
+    }
+  };
+  const unarchiveMonth = (key) => {
+    setLedgers((prev) => ({ ...prev, [key]: { ...(prev[key] || { expenses: [] }), archived: false } }));
+  };
+
   /* Delete a month — switches selection to adjacent month first, removes NW history entry */
   const deleteMonth = (key) => {
     if (!confirm(`Delete "${key}" and all its data?`)) return;
@@ -359,8 +390,7 @@ function App() {
       <header className="pagehd">
         <div className="pagehd__l">
           <span className="pagehd__eyebrow"></span>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <PixelSprite />
+          <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
             <h1 className="pagehd__title">{tabLabel[tab]}</h1>
           </div>
         </div>
@@ -416,16 +446,42 @@ function App() {
           {tab !== "networth" && (<>
             <span className="xbar__lbl">Month</span>
             <div className="month-chips">
-              {months.map((m) => (
+              {activeMonths.map((m) => (
                 <span key={m} className={`month-chip ${m === selectedMonth ? "is-on" : ""}`}>
-                  <button className="month-chip__label" onClick={() => setSelectedMonth(m)}>
-                    {m.split(" ")[0]}
+                  <button className="month-chip__label" onClick={() => setSelectedMonth(m)} title={m}>
+                    {chipLabel(m)}
                   </button>
+                  <button className="month-chip__del" onClick={() => archiveMonth(m)} title={`Archive ${m}`}>⊟</button>
                   {months.length > 1 && (
                     <button className="month-chip__del" onClick={() => deleteMonth(m)} title={`Delete ${m}`}>×</button>
                   )}
                 </span>
               ))}
+              {ledgers[selectedMonth]?.archived && (
+                <span className="month-chip is-on month-chip--arch">
+                  <button className="month-chip__label" title={`${selectedMonth} (archived)`}>{chipLabel(selectedMonth)}</button>
+                  <button className="month-chip__del" style={{ opacity: 0.7 }}
+                    onClick={() => unarchiveMonth(selectedMonth)} title={`Restore ${selectedMonth}`}>↺</button>
+                </span>
+              )}
+              {archivedMonths.length > 0 && (
+                <div className="arch" ref={archRef}>
+                  <button className="month-chip month-chip--ghost" onClick={() => setArchOpen((o) => !o)}>
+                    Archived ({archivedMonths.length}) ▾
+                  </button>
+                  {archOpen && (
+                    <div className="arch-pop">
+                      {archivedMonths.map((m) => (
+                        <div key={m} className="arch-row">
+                          <button className="arch-name" onClick={() => { setSelectedMonth(m); setArchOpen(false); }}>{m}</button>
+                          <button className="arch-act" title={`Restore ${m}`} onClick={() => unarchiveMonth(m)}>↺</button>
+                          <button className="arch-act arch-act--del" title={`Delete ${m}`} onClick={() => deleteMonth(m)}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </>)}
         </div>
@@ -527,7 +583,6 @@ function App() {
       {/* Tweaks panel */}
       {tweaksOpen && (
         <TweaksPanel
-          accent={accent}   setAccent={setAccent}
           density={density} setDensity={setDensity}
           onClose={() => setTweaksOpen(false)} />
       )}

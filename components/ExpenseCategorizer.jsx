@@ -1,30 +1,30 @@
 const { useState, useRef, useCallback } = React;
 
-// ── Design tokens (mirrors styles.css) ───────────────────────────────────────
+// ── Design tokens (mirrors styles.css — dark monotone) ───────────────────────
 const T = {
-  paper:    "#f6f1e8",
-  paper2:   "#efe9dd",
-  paper3:   "#e8e1d1",
-  ink:      "#2b2720",
-  ink2:     "#554e42",
-  ink3:     "#8a8172",
-  line:     "#d9d0bd",
-  line2:    "#c6bba4",
-  accent:   "oklch(0.55 0.09 45)",
-  accentSoft:"oklch(0.88 0.045 45)",
-  pos:      "oklch(0.5 0.1 150)",
-  neg:      "oklch(0.55 0.15 25)",
-  sage:     "oklch(0.92 0.035 145)",
-  sageInk:  "oklch(0.35 0.06 145)",
-  clay:     "oklch(0.93 0.035 55)",
-  clayInk:  "oklch(0.38 0.06 45)",
-  sky:      "oklch(0.92 0.04 230)",
-  skyInk:   "oklch(0.38 0.06 230)",
-  lilac:    "oklch(0.92 0.035 295)",
-  lilacInk: "oklch(0.38 0.06 295)",
-  cream:    "oklch(0.94 0.03 85)",
-  creamInk: "oklch(0.38 0.05 60)",
-  fDisp:    '"EB Garamond", "Times New Roman", Georgia, serif',
+  paper:    "#0a0b0d",
+  paper2:   "#0f1113",
+  paper3:   "#16191d",
+  ink:      "#e6e8ea",
+  ink2:     "#aeb4ba",
+  ink3:     "#5a6068",
+  line:     "#1e2227",
+  line2:    "#2a2f36",
+  accent:   "#e6e8ea",
+  accentSoft:"#2a2f36",
+  pos:      "#46a758",
+  neg:      "#e5484d",
+  sage:     "#0f1113",
+  sageInk:  "#46a758",
+  clay:     "#0f1113",
+  clayInk:  "#aeb4ba",
+  sky:      "#0f1113",
+  skyInk:   "#8a9096",
+  lilac:    "#0f1113",
+  lilacInk: "#8a9096",
+  cream:    "#0f1113",
+  creamInk: "#8a9096",
+  fDisp:    '"JetBrains Mono", ui-monospace, monospace',
   fBody:    '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
   fNum:     '"JetBrains Mono", ui-monospace, monospace',
 };
@@ -138,9 +138,10 @@ async function categorizeWithAI(uncertain) {
 // ── Shared styles ─────────────────────────────────────────────────────────────
 const pill = (bg, color) => ({
   display: "inline-flex", alignItems: "center",
-  padding: "2px 9px", borderRadius: 999,
+  padding: "2px 9px", borderRadius: 2,
   background: bg, color,
-  fontSize: 11, fontFamily: T.fBody, fontWeight: 500,
+  fontSize: 11, fontFamily: T.fNum, fontWeight: 500,
+  textTransform: "uppercase", letterSpacing: "0.06em",
 });
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -171,7 +172,7 @@ function CategorySelect({ value, onChange, customCategories = [], onAddCategory 
   const allCategories = [...BUDGET_CATEGORIES, ...customCategories];
   const selectStyle = {
     background: T.paper2, color: T.ink, border: `1px dashed ${T.line2}`,
-    borderRadius: 6, padding: "4px 8px", fontSize: 12,
+    borderRadius: 2, padding: "4px 8px", fontSize: 12,
     fontFamily: T.fBody, cursor: "pointer", width: "100%",
   };
   const handleChange = e => { if (e.target.value === "__add__") { setAdding(true); return; } onChange(e.target.value); };
@@ -186,8 +187,8 @@ function CategorySelect({ value, onChange, customCategories = [], onAddCategory 
         onKeyDown={e => { if (e.key === "Enter") commitNew(); if (e.key === "Escape") setAdding(false); }}
         placeholder="new category..."
         style={{ flex: 1, ...selectStyle, border: `1px solid ${T.accent}`, outline: "none", minWidth: 0, background: "#fff" }} />
-      <button onClick={commitNew} style={{ background: T.accent, color: T.paper, border: "none", borderRadius: 6, padding: "4px 10px", fontFamily: T.fBody, fontSize: 12, fontWeight: 500, cursor: "pointer" }}>add</button>
-      <button onClick={() => setAdding(false)} style={{ background: "transparent", color: T.ink3, border: `1px solid ${T.line}`, borderRadius: 6, padding: "4px 8px", fontFamily: T.fBody, fontSize: 12, cursor: "pointer" }}>cancel</button>
+      <button onClick={commitNew} style={{ background: T.accent, color: T.paper, border: "none", borderRadius: 2, padding: "4px 10px", fontFamily: T.fBody, fontSize: 12, fontWeight: 500, cursor: "pointer" }}>add</button>
+      <button onClick={() => setAdding(false)} style={{ background: "transparent", color: T.ink3, border: `1px solid ${T.line}`, borderRadius: 2, padding: "4px 8px", fontFamily: T.fBody, fontSize: 12, cursor: "pointer" }}>cancel</button>
     </div>
   );
   return (
@@ -241,7 +242,7 @@ function UploadPhase({ onFilesReady }) {
         onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
         style={{
           border: `1.5px dashed ${dragging ? T.accent : T.line2}`,
-          borderRadius: 12, padding: "36px 24px", textAlign: "center", cursor: "pointer",
+          borderRadius: 2, padding: "36px 24px", textAlign: "center", cursor: "pointer",
           background: dragging ? `color-mix(in oklch, ${T.accent}, transparent 94%)` : T.paper2,
           transition: "all 0.15s",
         }}>
@@ -260,7 +261,8 @@ function UploadPhase({ onFilesReady }) {
           {uploadedList.map(([key, upload]) => (
             <div key={key} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "8px 12px", borderRadius: 8,
+              flexWrap: "wrap", rowGap: 6,
+              padding: "8px 12px", borderRadius: 2,
               border: `1px solid color-mix(in oklch, ${T.sageInk}, transparent 70%)`,
               background: `color-mix(in oklch, ${T.sageInk}, transparent 92%)`,
             }}>
@@ -276,7 +278,7 @@ function UploadPhase({ onFilesReady }) {
                   placeholder="card / account"
                   style={{
                     background: T.paper, color: T.ink, width: 130,
-                    border: `1px dashed ${T.line2}`, borderRadius: 6,
+                    border: `1px dashed ${T.line2}`, borderRadius: 2,
                     padding: "3px 6px", fontSize: 11.5, fontFamily: T.fBody, outline: "none",
                   }} />
                 <button onClick={e => { e.stopPropagation(); removeFile(key); }} style={{
@@ -296,7 +298,7 @@ function UploadPhase({ onFilesReady }) {
         <button disabled={uploadedList.length === 0} onClick={() => onFilesReady(uploads)} style={{
           background: uploadedList.length > 0 ? T.accent : T.paper3,
           color: uploadedList.length > 0 ? T.paper : T.ink3,
-          border: "none", borderRadius: 8, padding: "9px 22px",
+          border: "none", borderRadius: 2, padding: "9px 22px",
           fontFamily: T.fBody, fontWeight: 500, fontSize: 13,
           cursor: uploadedList.length > 0 ? "pointer" : "not-allowed", transition: "all 0.15s",
         }}>
@@ -364,7 +366,7 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
   }, {});
 
   const statCard = (label, value, color) => (
-    <div key={label} style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 10, padding: "14px 16px" }}>
+    <div key={label} style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 2, padding: "14px 16px" }}>
       <div style={{ color, fontFamily: T.fNum, fontSize: 20, fontWeight: 500 }}>{value}</div>
       <div style={{ color: T.ink3, fontSize: 10.5, marginTop: 4, fontFamily: T.fBody, letterSpacing: "0.12em", textTransform: "uppercase" }}>{label}</div>
     </div>
@@ -381,7 +383,7 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 28 }}>
+      <div className="catz-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 28 }}>
         {statCard("Total spend",   `$${total.toFixed(2)}`, T.ink)}
         {statCard("Auto-approved", approved.length,         T.sageInk)}
         {statCard("Needs review",  needsReview.length,      T.clayInk)}
@@ -390,7 +392,7 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
 
       {/* Needs review */}
       {needsReview.length > 0 && (
-        <div style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px 22px", marginBottom: 20 }}>
+        <div style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 2, padding: "20px 22px", marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${T.line}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ width: 7, height: 7, borderRadius: 999, background: T.clayInk, display: "inline-block" }} />
@@ -415,7 +417,7 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
             {needsReview.map((t, i) => (
-              <div key={t.id} style={{
+              <div key={t.id} className="catz-row" style={{
                 display: "grid", gridTemplateColumns: "1fr auto 190px 90px",
                 gap: 12, alignItems: "center", padding: "9px 4px",
                 borderBottom: i < needsReview.length - 1 ? `1px dashed color-mix(in oklch, ${T.ink}, transparent 90%)` : "none",
@@ -435,7 +437,7 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
                 <button onClick={() => t.aiSuggestion && confirm(t.id, t.aiSuggestion)} disabled={!t.aiSuggestion} style={{
                   background: t.aiSuggestion ? T.accent : T.paper3,
                   color: t.aiSuggestion ? T.paper : T.ink3,
-                  border: "none", borderRadius: 6, padding: "6px 10px",
+                  border: "none", borderRadius: 2, padding: "6px 10px",
                   fontFamily: T.fBody, fontSize: 12, fontWeight: 500,
                   cursor: t.aiSuggestion ? "pointer" : "not-allowed", whiteSpace: "nowrap",
                 }}>
@@ -449,11 +451,11 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
 
       {/* Approved */}
       {approved.length > 0 && (
-        <div style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px 22px", marginBottom: 20 }}>
+        <div style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 2, padding: "20px 22px", marginBottom: 20 }}>
           {sectionHd(`approved (${approved.length})`, T.sageInk)}
           <div>
             {approved.map((t, i) => (
-              <div key={t.id} style={{
+              <div key={t.id} className="catz-row" style={{
                 display: "grid", gridTemplateColumns: "1fr auto 190px auto",
                 gap: 12, alignItems: "center", padding: "8px 4px",
                 borderBottom: i < approved.length - 1 ? `1px dashed color-mix(in oklch, ${T.ink}, transparent 90%)` : "none",
@@ -481,11 +483,11 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
 
       {/* Category summary */}
       {Object.keys(byCategory).length > 0 && (
-        <div style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 14, padding: "20px 22px", marginBottom: 28 }}>
+        <div style={{ background: T.paper2, border: `1px solid ${T.line}`, borderRadius: 2, padding: "20px 22px", marginBottom: 28 }}>
           {sectionHd("category summary", T.ink3)}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px,1fr))", gap: 10 }}>
             {Object.entries(byCategory).sort((a,b) => b[1]-a[1]).map(([cat, amt]) => (
-              <div key={cat} style={{ background: T.paper3, border: `1px solid ${T.line}`, borderRadius: 8, padding: "10px 12px" }}>
+              <div key={cat} style={{ background: T.paper3, border: `1px solid ${T.line}`, borderRadius: 2, padding: "10px 12px" }}>
                 <div style={{ fontFamily: T.fNum, fontSize: 16, color: T.ink, fontWeight: 500 }}>${amt.toFixed(2)}</div>
                 <div style={{ fontSize: 11, color: T.ink3, marginTop: 3, fontFamily: T.fBody }}>{cat}</div>
               </div>
@@ -499,7 +501,7 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
         <button onClick={() => onSave(transactions)} disabled={needsReview.length > 0} style={{
           background: needsReview.length === 0 ? T.accent : T.paper3,
           color: needsReview.length === 0 ? T.paper : T.ink3,
-          border: "none", borderRadius: 8, padding: "11px 28px",
+          border: "none", borderRadius: 2, padding: "11px 28px",
           fontFamily: T.fBody, fontWeight: 500, fontSize: 14,
           cursor: needsReview.length === 0 ? "pointer" : "not-allowed",
         }}>
@@ -600,7 +602,7 @@ function ExpenseCategorizer({ onSave }) {
   const phaseLabel = { upload: "upload statements", processing: "categorizing\u2026", review: "review & confirm" };
 
   return (
-    <div style={{ minHeight: "100vh", background: T.paper, color: T.ink, fontFamily: T.fBody, padding: "48px 32px 80px" }}>
+    <div className="catz-page" style={{ minHeight: "100vh", background: T.paper, color: T.ink, fontFamily: T.fBody, padding: "48px 32px 80px" }}>
       {/* Header */}
       <div style={{ maxWidth: 860, margin: "0 auto 36px", borderBottom: `1px solid ${T.line}`, paddingBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
@@ -608,8 +610,8 @@ function ExpenseCategorizer({ onSave }) {
             <div style={{ fontSize: 10.5, letterSpacing: "0.18em", textTransform: "uppercase", color: T.ink3, fontFamily: T.fBody, marginBottom: 4 }}>
               Ledger
             </div>
-            <h1 style={{ fontFamily: T.fDisp, fontWeight: 500, fontSize: 34, margin: 0, letterSpacing: "-0.005em", color: T.ink }}>
-              Expense <em style={{ color: T.accent, fontStyle: "italic" }}>Categorizer</em>
+            <h1 style={{ fontFamily: T.fDisp, fontWeight: 500, fontSize: 17, margin: 0, letterSpacing: "0.2em", textTransform: "uppercase", color: T.ink }}>
+              Expense Categorizer
             </h1>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>

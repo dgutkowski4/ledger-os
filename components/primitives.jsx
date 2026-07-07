@@ -10,38 +10,14 @@ const fmt = (n, dec = 2) => {
 const fmt0 = (n) => fmt(n, 0);
 const pct = (n) => `${n.toFixed(0)}%`;
 
-const SEC_TONES = ["cream", "sage", "sky", "lilac", "clay", "rose", "mint", "paper"];
-const SEC_TONE_BG = {
-  cream: "var(--cream)", sage: "var(--sage)", sky: "var(--sky)",
-  lilac: "var(--lilac)", clay: "var(--clay)", rose: "var(--rose)",
-  mint:  "var(--mint)",  paper: "var(--paper-2)",
-};
-
-function Section({ tone: defaultTone = "neutral", eyebrow, title, titleKey, right, children, className = "" }) {
-  const [tone, _setTone] = React.useState(() =>
-    titleKey ? (localStorage.getItem(`sec_tone_${titleKey}`) || defaultTone) : defaultTone
-  );
-  const setTone = (t) => {
-    _setTone(t);
-    if (titleKey) localStorage.setItem(`sec_tone_${titleKey}`, t);
-  };
-
+function Section({ tone, eyebrow, title, titleKey, right, children, className = "" }) {
   const [label, setLabel] = React.useState(() =>
     titleKey ? (localStorage.getItem(`sec_title_${titleKey}`) || title) : title
   );
   const [editing, setEditing] = React.useState(false);
-  const [pickerOpen, setPickerOpen] = React.useState(false);
   const inputRef = React.useRef(null);
-  const pickerRef = React.useRef(null);
 
   React.useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
-
-  React.useEffect(() => {
-    if (!pickerOpen) return;
-    const handler = (e) => { if (!pickerRef.current?.contains(e.target)) setPickerOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [pickerOpen]);
 
   const commit = (v) => {
     const val = v.trim() || title;
@@ -51,7 +27,7 @@ function Section({ tone: defaultTone = "neutral", eyebrow, title, titleKey, righ
   };
 
   return (
-    <section className={`sec sec--${tone} ${className}`}>
+    <section className={`sec ${className}`}>
       <header className="sec__hd">
         <div className="sec__ltitle">
           {eyebrow && <span className="sec__eyebrow">{eyebrow}</span>}
@@ -68,28 +44,6 @@ function Section({ tone: defaultTone = "neutral", eyebrow, title, titleKey, righ
                     <path d="M8.5 1.5 L10.5 3.5 L4 10 L1.5 10.5 L2 8 Z" />
                   </svg>
                 </button>
-              )}
-              {titleKey && (
-                <div className="sec__color-wrap" ref={pickerRef}>
-                  <button className="sec__color-btn" onClick={() => setPickerOpen(o => !o)} title="Change color">
-                    <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
-                      <circle cx="3"  cy="3"  r="2" opacity="0.9" />
-                      <circle cx="9"  cy="3"  r="2" opacity="0.7" />
-                      <circle cx="3"  cy="9"  r="2" opacity="0.6" />
-                      <circle cx="9"  cy="9"  r="2" opacity="0.8" />
-                    </svg>
-                  </button>
-                  {pickerOpen && (
-                    <div className="sec__color-picker">
-                      {SEC_TONES.map(t => (
-                        <button key={t} className={`sec__swatch${tone === t ? " is-on" : ""}`}
-                          style={{ background: SEC_TONE_BG[t] }}
-                          onClick={() => { setTone(t); setPickerOpen(false); }}
-                          title={t.charAt(0).toUpperCase() + t.slice(1)} />
-                      ))}
-                    </div>
-                  )}
-                </div>
               )}
             </div>
           )}
@@ -226,46 +180,6 @@ function Donut({ data, size = 160, stroke = 22, label = "Spent" }) {
       })}
       <text x={size / 2} y={size / 2 - 4} textAnchor="middle" className="donut__t">{label}</text>
       <text x={size / 2} y={size / 2 + 18} textAnchor="middle" className="donut__v">{fmt0(sum)}</text>
-    </svg>
-  );
-}
-
-/* 8-bit gold coin — 8×8 pixel grid, P=4 → 32×32px
-   k=dark outline  g=mid gold  l=light gold  s=shine  d=shadow */
-function PixelSprite() {
-  const P = 4;
-  const COIN = [
-    "..kkkk..",
-    ".kllggk.",
-    "klssgggk",
-    "klsgggdk",
-    "kgggggdk",
-    "kggddddk",
-    ".kgdddk.",
-    "..kkkk..",
-  ];
-
-  const COLOR = {
-    k: 'oklch(0.28 0.08 55)',
-    g: 'oklch(0.70 0.16 80)',
-    l: 'oklch(0.84 0.14 82)',
-    s: 'oklch(0.95 0.07 88)',
-    d: 'oklch(0.46 0.14 62)',
-  };
-
-  const rects = [];
-  COIN.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      const ch = row[x];
-      if (ch === '.') continue;
-      rects.push(<rect key={`${x}-${y}`} x={x * P} y={y * P} width={P} height={P} fill={COLOR[ch]} />);
-    }
-  });
-
-  return (
-    <svg className="px-sprite" width={8 * P} height={8 * P}
-      style={{ display: 'inline-block', verticalAlign: 'middle', imageRendering: 'pixelated', flexShrink: 0 }}>
-      {rects}
     </svg>
   );
 }
@@ -415,4 +329,4 @@ function LayoutGrid({ id, children, cols = "1fr 1fr" }) {
   );
 }
 
-Object.assign(window, { uid, fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, PixelSprite, LayoutGrid });
+Object.assign(window, { uid, fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, LayoutGrid });

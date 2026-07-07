@@ -1,20 +1,6 @@
-/* Tweaks panel — accent color + density */
+/* Tweaks panel — density + data reset */
 
-const ACCENTS = [
-  { key: "terra",  c: "oklch(0.55 0.09 45)",  soft: "oklch(0.88 0.045 45)" },
-  { key: "olive",  c: "oklch(0.5 0.08 110)",  soft: "oklch(0.88 0.04 110)" },
-  { key: "indigo", c: "oklch(0.5 0.1 270)",   soft: "oklch(0.88 0.05 270)" },
-  { key: "rose",   c: "oklch(0.58 0.13 10)",  soft: "oklch(0.88 0.05 10)"  },
-];
-
-function applyAccent(key) {
-  const a = ACCENTS.find((x) => x.key === key) || ACCENTS[0];
-  const r = document.documentElement;
-  r.style.setProperty("--accent", a.c);
-  r.style.setProperty("--accent-soft", a.soft);
-}
-
-function TweaksPanel({ accent, setAccent, density, setDensity, onClose }) {
+function TweaksPanel({ density, setDensity, onClose }) {
   return (
     <div className="tweaks">
       <div className="tweaks__hd">
@@ -22,18 +8,6 @@ function TweaksPanel({ accent, setAccent, density, setDensity, onClose }) {
         <button className="tweaks__close" onClick={onClose}>×</button>
       </div>
       <div className="tweaks__body">
-        <div>
-          <span className="tweaks__lbl">Accent</span>
-          <div className="tweaks__sws">
-            {ACCENTS.map((a) => (
-              <button key={a.key}
-                className={`tweaks__sw ${accent === a.key ? "is-on" : ""}`}
-                style={{ "--c": a.c }}
-                onClick={() => setAccent(a.key)}
-                title={a.key} />
-            ))}
-          </div>
-        </div>
         <div>
           <span className="tweaks__lbl">Density</span>
           <div className="tweaks__row">
@@ -63,4 +37,4 @@ function TweaksPanel({ accent, setAccent, density, setDensity, onClose }) {
   );
 }
 
-Object.assign(window, { TweaksPanel, applyAccent, ACCENTS });
+Object.assign(window, { TweaksPanel });
