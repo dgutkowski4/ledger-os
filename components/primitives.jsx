@@ -1,5 +1,7 @@
 /* Shared primitives: money formatter, Check, Progress, SoftLine chart. */
 
+const uid = (prefix = "x") => prefix + Math.random().toString(36).slice(2, 9);
+
 const fmt = (n, dec = 2) => {
   const neg = n < 0;
   const s = Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -201,7 +203,8 @@ function SoftLine({ data, height = 120 }) {
 
 /* Donut chart — shared by expenses + dashboard */
 function Donut({ data, size = 160, stroke = 22, label = "Spent" }) {
-  const total = data.reduce((s, d) => s + d.v, 0) || 1;
+  const sum = data.reduce((s, d) => s + d.v, 0);
+  const total = sum || 1; /* avoid divide-by-zero in arc math; label shows the real sum */
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   let acc = 0;
@@ -222,7 +225,7 @@ function Donut({ data, size = 160, stroke = 22, label = "Spent" }) {
         );
       })}
       <text x={size / 2} y={size / 2 - 4} textAnchor="middle" className="donut__t">{label}</text>
-      <text x={size / 2} y={size / 2 + 18} textAnchor="middle" className="donut__v">{fmt0(total)}</text>
+      <text x={size / 2} y={size / 2 + 18} textAnchor="middle" className="donut__v">{fmt0(sum)}</text>
     </svg>
   );
 }
@@ -386,7 +389,7 @@ function LayoutGrid({ id, children, cols = "1fr 1fr" }) {
   );
 
   return (
-    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: `${colRatio}fr ${1 - colRatio}fr`, gap: 28 }}>
+    <div ref={gridRef} className="layout-grid" style={{ display: "grid", gridTemplateColumns: `${colRatio}fr ${1 - colRatio}fr`, gap: 28 }}>
       {itemsWithCol.map(({ key, child, full }) => (
         <div
           key={key}
@@ -412,4 +415,4 @@ function LayoutGrid({ id, children, cols = "1fr 1fr" }) {
   );
 }
 
-Object.assign(window, { fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, PixelSprite, LayoutGrid });
+Object.assign(window, { uid, fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, PixelSprite, LayoutGrid });

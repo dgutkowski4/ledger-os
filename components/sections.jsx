@@ -44,14 +44,17 @@ function SavingsSection({ savings, setSavings, month = "APRIL" }) {
                 </td>
                 <td className="num">
                   <input className="ed-num sm" type="number" value={r.target}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => update(r.id, { target: parseFloat(e.target.value) || 0 })} />
                 </td>
                 <td className="num">
                   <input className="ed-num sm" type="number" value={r.paid1}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => update(r.id, { paid1: parseFloat(e.target.value) || 0 })} />
                 </td>
                 <td className="num">
                   <input className="ed-num sm" type="number" value={r.paid2}
+                    onFocus={(e) => e.target.select()}
                     onChange={(e) => update(r.id, { paid2: parseFloat(e.target.value) || 0 })} />
                 </td>
                 <td><Progress value={paid} max={r.target} tone="sky" /></td>

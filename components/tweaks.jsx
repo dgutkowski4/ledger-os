@@ -50,7 +50,11 @@ function TweaksPanel({ accent, setAccent, density, setDensity, onClose }) {
         <div style={{ paddingTop: 8, borderTop: "1px solid color-mix(in oklch, var(--ink), transparent 88%)" }}>
           <span className="tweaks__lbl">Data</span>
           <button className="tweaks__opt" style={{ color: "oklch(0.55 0.15 25)" }}
-            onClick={() => { if (confirm("Reset all data? This cannot be undone.")) { localStorage.clear(); window.location.reload(); } }}>
+            onClick={() => {
+              if (!confirm("Reset all data? This deletes your cloud copy too and cannot be undone.")) return;
+              if (window.ledgerReset) window.ledgerReset();
+              else { localStorage.clear(); window.location.reload(); }
+            }}>
             Reset all data
           </button>
         </div>

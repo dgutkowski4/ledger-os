@@ -4,20 +4,17 @@
 const ASSET_CATS = ["Cash & Savings", "Investments", "Retirement", "Crypto", "Real Estate", "Other"];
 const LIAB_CATS  = ["Credit Card", "Student Loan", "Mortgage", "Auto Loan", "Other"];
 
+/* Zeroed skeleton for new users — saved data always overrides these */
 const NW_ASSETS_SEED = [
-  { id: "a1", name: "Marcus HYSA",        category: "Cash & Savings", value: 8420.00 },
-  { id: "a2", name: "Vanguard Roth IRA",  category: "Retirement",     value: 9180.50 },
-  { id: "a3", name: "Fidelity Brokerage", category: "Investments",    value: 5120.20 },
-  { id: "a4", name: "Coinbase Crypto",    category: "Crypto",         value: 1840.00 },
-  { id: "a5", name: "Charles Schwab",     category: "Investments",    value:  640.80 },
-  { id: "a6", name: "Checking",           category: "Cash & Savings", value: 4200.00 },
+  { id: "a1", name: "Checking",           category: "Cash & Savings", value: 0 },
+  { id: "a2", name: "High-Yield Savings", category: "Cash & Savings", value: 0 },
+  { id: "a3", name: "Retirement (IRA)",   category: "Retirement",     value: 0 },
+  { id: "a4", name: "Brokerage",          category: "Investments",    value: 0 },
 ];
 
 const NW_LIABILITIES_SEED = [
-  { id: "l1", name: "Chase Sapphire", category: "Credit Card",  value:  284.60 },
-  { id: "l2", name: "Capital One",    category: "Credit Card",  value:   82.40 },
-  { id: "l3", name: "Discover",       category: "Credit Card",  value:   21.00 },
-  { id: "l4", name: "Student Loans",  category: "Student Loan", value: 3235.00 },
+  { id: "l1", name: "Credit Card",   category: "Credit Card",  value: 0 },
+  { id: "l2", name: "Student Loans", category: "Student Loan", value: 0 },
 ];
 
 function CompoundCalculator({ initialPrincipal = 0 }) {
@@ -99,6 +96,7 @@ function CompoundCalculator({ initialPrincipal = 0 }) {
             <td className="num">
               <input type="number" className="ed-num" style={{ width: 120 }}
                 value={principal}
+                onFocus={e => e.target.select()}
                 onChange={e => setPrincipal(parseFloat(e.target.value) || 0)} />
             </td>
           </tr>
@@ -107,6 +105,7 @@ function CompoundCalculator({ initialPrincipal = 0 }) {
             <td className="num">
               <input type="number" className="ed-num" style={{ width: 120 }}
                 value={monthly}
+                onFocus={e => e.target.select()}
                 onChange={e => setMonthly(parseFloat(e.target.value) || 0)} />
             </td>
           </tr>
@@ -115,6 +114,7 @@ function CompoundCalculator({ initialPrincipal = 0 }) {
             <td className="num">
               <input type="number" step="0.1" className="ed-num" style={{ width: 120 }}
                 value={rate}
+                onFocus={e => e.target.select()}
                 onChange={e => setRate(parseFloat(e.target.value) || 0)} />
             </td>
           </tr>
@@ -123,6 +123,7 @@ function CompoundCalculator({ initialPrincipal = 0 }) {
             <td className="num">
               <input type="number" min="1" max="60" className="ed-num" style={{ width: 120 }}
                 value={years}
+                onFocus={e => e.target.select()}
                 onChange={e => setYears(Math.max(1, Math.min(60, parseInt(e.target.value) || 1)))} />
             </td>
           </tr>

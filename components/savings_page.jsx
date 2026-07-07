@@ -8,20 +8,11 @@ const TYPE_TONE = {
   Other:      "cream",
 };
 
-/* Fallback map — resolves type from account name when r.type is absent */
-const ACCT_TYPE_MAP = {
-  "Marcus HYSA":        "HYSA",
-  "Vanguard IRA":       "Retirement",
-  "Fidelity Brokerage": "Brokerage",
-  "Coinbase Crypto":    "Crypto",
-  "Charles Schwab":     "Brokerage",
-};
-
 function resolveType(r) {
-  return r.type || ACCT_TYPE_MAP[r.acct] || "Other";
+  return r.type || "Other";
 }
 
-function SavingsPage({ accounts, setAccounts, savings, setSavings, month = "APRIL", selectedMonth = "", savingsNotes = {}, setSavingsNotes }) {
+function SavingsPage({ savings, setSavings, month = "APRIL", selectedMonth = "", savingsNotes = {}, setSavingsNotes }) {
   const notes    = savingsNotes[selectedMonth] || "";
   const setNotes = (v) => setSavingsNotes && setSavingsNotes((prev) => ({ ...prev, [selectedMonth]: v }));
   /* All stats derived from the monthly savings rows */

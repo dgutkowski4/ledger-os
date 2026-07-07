@@ -36,11 +36,9 @@ function PDRow({ item, column, onToggle, onAmount, onName, onRemove }) {
 }
 
 const PD_CREDITS_DEFAULT = [
-  { id: "c1", name: "Chase",         pd1: { checked: false, amount: 0 },   pd2: { checked: false, amount: 0 } },
-  { id: "c2", name: "Capital One",   pd1: { checked: false, amount: 0 },   pd2: { checked: false, amount: 0 } },
-  { id: "c3", name: "Discover",      pd1: { checked: false, amount: 0 },   pd2: { checked: false, amount: 0 } },
-  { id: "c4", name: "Student Loans", pd1: { checked: false, amount: 55 },  pd2: { checked: false, amount: 55 } },
-  { id: "c5", name: "Rent",          pd1: { checked: false, amount: 580 }, pd2: { checked: false, amount: 580 } },
+  { id: "c1", name: "Credit Card",   pd1: { checked: false, amount: 0 }, pd2: { checked: false, amount: 0 } },
+  { id: "c2", name: "Rent",          pd1: { checked: false, amount: 0 }, pd2: { checked: false, amount: 0 } },
+  { id: "c3", name: "Student Loans", pd1: { checked: false, amount: 0 }, pd2: { checked: false, amount: 0 } },
 ];
 
 function pdLsGet(key, fallback) {

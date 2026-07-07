@@ -3,20 +3,37 @@
 const MONTHS_LIST = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+/* New users start on the current calendar month */
+const DEFAULT_MONTH = `${MONTHS_LIST[new Date().getMonth()]} ${new Date().getFullYear()}`;
+
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
   catch { return fallback; }
 }
 
+/* Ensure every expense row has a stable id and every month has income rows.
+   Older saved data (and the seed) identified rows by category name only. */
+function migrateLedgers(ledgers) {
+  const out = {};
+  Object.entries(ledgers).forEach(([month, ledger]) => {
+    out[month] = {
+      ...ledger,
+      expenses: (ledger.expenses || []).map((e) => (e.id ? e : { ...e, id: uid("e") })),
+      income: ledger.income || window.INCOME.map((i) => ({ ...i, id: uid("i") })),
+    };
+  });
+  return out;
+}
+
 function App() {
   /* Lifted ledger state — persisted to localStorage */
   const [ledgers, setLedgers] = React.useState(() =>
-    lsGet("ledger_ledgers", {
-      "April 2026": { expenses: window.EXPENSES.map((e) => ({ ...e })) },
-    })
+    migrateLedgers(lsGet("ledger_ledgers", {
+      [DEFAULT_MONTH]: { expenses: window.EXPENSES.map((e) => ({ ...e })) },
+    }))
   );
   const [selectedMonth, setSelectedMonth] = React.useState(() =>
-    lsGet("ledger_selected_month", "April 2026")
+    lsGet("ledger_selected_month", DEFAULT_MONTH)
   );
   const months = Object.keys(ledgers);
 
@@ -30,7 +47,6 @@ function App() {
       return { ...prev, [selectedMonth]: next };
     });
   }, [selectedMonth]);
-  const [accounts,       setAccounts]       = React.useState(() => lsGet("ledger_accounts",        window.SAVINGS_ACCOUNTS));
   const [nwAssets,       setNwAssets]       = React.useState(() => lsGet("ledger_nw_assets",       window.NW_ASSETS_SEED));
   const [nwLiabilities,  setNwLiabilities]  = React.useState(() => lsGet("ledger_nw_liabilities",  window.NW_LIABILITIES_SEED));
   const [nwHistory,      setNwHistory]      = React.useState(() =>
@@ -50,7 +66,6 @@ function App() {
   React.useEffect(() => { localStorage.setItem("ledger_selected_month", JSON.stringify(selectedMonth)); }, [selectedMonth]);
   React.useEffect(() => { localStorage.setItem("ledger_savings",        JSON.stringify(savings));       }, [savings]);
   React.useEffect(() => { localStorage.setItem("ledger_planner_savings",JSON.stringify(allPlannerSavings));}, [allPlannerSavings]);
-  React.useEffect(() => { localStorage.setItem("ledger_accounts",       JSON.stringify(accounts));      }, [accounts]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_assets",      JSON.stringify(nwAssets));      }, [nwAssets]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_liabilities", JSON.stringify(nwLiabilities)); }, [nwLiabilities]);
   React.useEffect(() => { localStorage.setItem("ledger_nw_history",     JSON.stringify(nwHistory));     }, [nwHistory]);
@@ -62,17 +77,27 @@ function App() {
   /* Derived from current ledger */
   const currentLedger = ledgers[selectedMonth] || { expenses: [] };
   const expenses      = currentLedger.expenses;
+  const incomeRows    = currentLedger.income || [];
 
-  /* Undo / redo for expenses — lifted here so xbar buttons can reach it */
-  const expHistoryRef = React.useRef([expenses]);
+  /* Undo / redo for the Expenses tab — each snapshot covers expense rows AND income rows */
+  const expHistoryRef = React.useRef([{ expenses, income: incomeRows }]);
   const [expHistoryIdx, setExpHistoryIdx] = React.useState(0);
-  React.useEffect(() => { expHistoryRef.current = [expenses]; setExpHistoryIdx(0); }, [selectedMonth]);
+  React.useEffect(() => { expHistoryRef.current = [{ expenses, income: incomeRows }]; setExpHistoryIdx(0); }, [selectedMonth]);
 
-  const applyExpenses = (next) => {
-    const stack = expHistoryRef.current.slice(0, expHistoryIdx + 1).concat([next]);
+  const applyExpSnapshot = (snap) => {
+    const stack = expHistoryRef.current.slice(0, expHistoryIdx + 1).concat([snap]);
     expHistoryRef.current = stack;
     setExpHistoryIdx(stack.length - 1);
-    setLedgers((prev) => ({ ...prev, [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: next } }));
+    setLedgers((prev) => ({
+      ...prev,
+      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: snap.expenses, income: snap.income },
+    }));
+  };
+
+  const applyExpenses = (next) => applyExpSnapshot({ expenses: next, income: incomeRows });
+  const applyIncome = (rowsOrFn) => {
+    const next = typeof rowsOrFn === "function" ? rowsOrFn(incomeRows) : rowsOrFn;
+    applyExpSnapshot({ expenses, income: next });
   };
 
   const undoExpenses = React.useCallback(() => {
@@ -80,7 +105,10 @@ function App() {
     if (expHistoryIdx <= 0) return;
     const idx = expHistoryIdx - 1;
     setExpHistoryIdx(idx);
-    setLedgers((prev) => ({ ...prev, [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: h[idx] } }));
+    setLedgers((prev) => ({
+      ...prev,
+      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: h[idx].expenses, income: h[idx].income },
+    }));
   }, [expHistoryIdx, selectedMonth]);
 
   const redoExpenses = React.useCallback(() => {
@@ -88,23 +116,14 @@ function App() {
     if (expHistoryIdx >= h.length - 1) return;
     const idx = expHistoryIdx + 1;
     setExpHistoryIdx(idx);
-    setLedgers((prev) => ({ ...prev, [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: h[idx] } }));
+    setLedgers((prev) => ({
+      ...prev,
+      [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), expenses: h[idx].expenses, income: h[idx].income },
+    }));
   }, [expHistoryIdx, selectedMonth]);
 
   const canUndo = expHistoryIdx > 0;
   const canRedo = expHistoryIdx < expHistoryRef.current.length - 1;
-
-  React.useEffect(() => {
-    const undoFn = tab === "savings" ? undoSavings : tab === "networth" ? undoNw : undoExpenses;
-    const redoFn = tab === "savings" ? redoSavings : tab === "networth" ? redoNw : redoExpenses;
-    const handler = (e) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undoFn(); }
-      if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); redoFn(); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [undoExpenses, redoExpenses, undoSavings, redoSavings, undoNw, redoNw, tab]);
 
   /* Short month label for section eyebrows, e.g. "APRIL" */
   const monthLabel = selectedMonth.split(" ")[0].toUpperCase();
@@ -213,8 +232,21 @@ function App() {
   const canNwUndo = nwEditHistoryIdx > 0;
   const canNwRedo = nwEditHistoryIdx < nwEditHistoryRef.current.length - 1;
 
-  /* Header derived totals */
-  const incomeTotal  = window.INCOME.reduce((s, i) => s + i.amount, 0);
+  /* Keyboard undo/redo — declared after all undo/redo callbacks exist */
+  React.useEffect(() => {
+    const undoFn = tab === "savings" ? undoSavings : tab === "networth" ? undoNw : undoExpenses;
+    const redoFn = tab === "savings" ? redoSavings : tab === "networth" ? redoNw : redoExpenses;
+    const handler = (e) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undoFn(); }
+      if ((e.key === "z" && e.shiftKey) || e.key === "y") { e.preventDefault(); redoFn(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [undoExpenses, redoExpenses, undoSavings, redoSavings, undoNw, redoNw, tab]);
+
+  /* Header derived totals — income is per-month, stored in the ledger */
+  const incomeTotal  = incomeRows.reduce((s, i) => s + i.amount, 0);
   const actualTotal  = expenses.reduce((s, e) => s + e.actual, 0);
   const leftover     = incomeTotal - actualTotal;
   const savingsTotal = effectiveSavings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
@@ -276,31 +308,41 @@ function App() {
     setLedgers((prev) => ({
       ...prev,
       [selectedMonth]: { ...(prev[selectedMonth] || { expenses: [] }), savingsPaid: snapshotPaid, savingsTargets: snapshotTargets },
-      [key]: { expenses: expenses.map((e) => ({ ...e, actual: 0 })), savingsPaid: {}, savingsTargets: snapshotTargets },
+      [key]: {
+        expenses: expenses.map((e) => ({ ...e, actual: 0 })),
+        income: incomeRows.map((r) => ({ ...r })),
+        savingsPaid: {},
+        savingsTargets: snapshotTargets,
+      },
     }));
     /* Clear base savings paid amounts now that they're in the ledger */
     setSavings((prev) => prev.map((r) => ({ ...r, paid1: 0, paid2: 0 })));
     setSelectedMonth(key);
   };
 
+  /* Goes through applyExpenses so an imported batch is a single undoable step */
   const handleCategorizerSave = (txns) => {
     const totals = {};
     txns.filter(t => t.confirmedCategory).forEach(t => {
       totals[t.confirmedCategory] = (totals[t.confirmedCategory] || 0) + t.amount;
     });
-    setLedgers((prev) => {
-      const ledger = prev[selectedMonth] || { expenses: [] };
-      const matched = new Set();
-      const updated = ledger.expenses.map((e) => {
-        if (e.cat in totals) { matched.add(e.cat); return { ...e, actual: (e.actual || 0) + totals[e.cat] }; }
-        return e;
-      });
-      const newRows = Object.entries(totals)
-        .filter(([cat]) => !matched.has(cat))
-        .map(([cat, actual]) => ({ cat, expected: 0, actual, group: "want", note: "imported" }));
-      return { ...prev, [selectedMonth]: { ...ledger, expenses: [...updated, ...newRows] } };
+    const matched = new Set();
+    const updated = expenses.map((e) => {
+      if (e.cat in totals) { matched.add(e.cat); return { ...e, actual: (e.actual || 0) + totals[e.cat] }; }
+      return e;
     });
+    const newRows = Object.entries(totals)
+      .filter(([cat]) => !matched.has(cat))
+      .map(([cat, actual]) => ({ id: uid("e"), cat, expected: 0, actual, group: "want", note: "imported" }));
+    applyExpenses([...updated, ...newRows]);
     setTab("expenses");
+  };
+
+  /* Everything the export helpers need, in one place */
+  const exportCtx = {
+    ledgers, selectedMonth,
+    savings: effectiveSavings,
+    assets: nwAssets, liabilities: nwLiabilities, history: nwHistory,
   };
 
   const tabLabel = {
@@ -357,13 +399,15 @@ function App() {
             {t.l}
           </button>
         ))}
-        <button
-          className="tabs__b"
-          style={{ marginLeft: "auto" }}
-          onClick={() => setTweaksOpen((v) => !v)}
-          title="Tweaks">
-          ⚙
-        </button>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 2 }}>
+          <AuthWidget />
+          <button
+            className="tabs__b"
+            onClick={() => setTweaksOpen((v) => !v)}
+            title="Tweaks">
+            ⚙
+          </button>
+        </div>
       </nav>
 
       {/* Toolbar — month selector + undo/redo for all tabs */}
@@ -398,6 +442,12 @@ function App() {
                 disabled={!cr} onClick={r} title="Redo (⌘⇧Z)">↪ Redo</button>
             </>);
           })()}
+          {["dashboard", "expenses", "savings", "networth"].includes(tab) && (
+            <button className="btn-ghost" onClick={() => downloadTabCSV(tab, exportCtx)}
+              title="Download this tab's data as CSV">⬇ CSV</button>
+          )}
+          <button className="btn-ghost" onClick={() => downloadAllXLSX(exportCtx)}
+            title="Download all data as an Excel workbook">⬇ All (.xlsx)</button>
           {tab !== "networth" && (addingMonth ? (
             <input
               className="month-chip-input"
@@ -405,7 +455,7 @@ function App() {
               value={newMonthDraft}
               placeholder="e.g. May 2026"
               onChange={(e) => setNewMonthDraft(e.target.value)}
-              onBlur={commitNewMonth}
+              onBlur={() => { setAddingMonth(false); setNewMonthDraft(""); }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") commitNewMonth();
                 if (e.key === "Escape") { setAddingMonth(false); setNewMonthDraft(""); }
@@ -443,7 +493,8 @@ function App() {
           ledgers={ledgers}
           setLedgers={setLedgers}
           selectedMonth={selectedMonth}
-          income={incomeTotal}
+          incomeRows={incomeRows}
+          setIncomeRows={applyIncome}
           applyExpenses={applyExpenses}
           undo={undoExpenses}
           redo={redoExpenses}
@@ -454,7 +505,6 @@ function App() {
       {/* Savings tab */}
       {tab === "savings" && (
         <SavingsPage
-          accounts={accounts} setAccounts={setAccounts}
           savings={effectiveSavings} setSavings={applySavings}
           month={monthLabel}
           selectedMonth={selectedMonth}

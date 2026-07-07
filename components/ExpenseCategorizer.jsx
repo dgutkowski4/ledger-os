@@ -36,13 +36,6 @@ const BUDGET_CATEGORIES = [
   "Disc. Shopping", "Gym Membership", "Subscriptions", "Dining", "Gifts Fund",
 ];
 
-const CARD_OPTIONS = [
-  { id: "discover",  label: "Discover",              hint: "iCloud · credit history" },
-  { id: "capone",    label: "Capital One Savor One", hint: "Transportation" },
-  { id: "bilt",      label: "BILT",                  hint: "Rent · subscriptions" },
-  { id: "sapphire",  label: "Chase Sapphire",        hint: "Everyday purchases" },
-];
-
 // ── Merchant Memory ───────────────────────────────────────────────────────────
 const MEMORY_KEY = "expense_merchant_memory_v1";
 function loadMemory() { try { return JSON.parse(localStorage.getItem(MEMORY_KEY) || "{}"); } catch { return {}; } }
@@ -77,17 +70,36 @@ function matchTransaction(description, memory) {
 }
 
 // ── CSV Parsing ───────────────────────────────────────────────────────────────
+/* Proper CSV field splitter: handles quoted fields with embedded commas and
+   escaped quotes ("") — the previous regex approach dropped empty fields. */
+function parseCSVLine(line) {
+  const out = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQuotes = false;
+      } else cur += ch;
+    } else if (ch === '"') inQuotes = true;
+    else if (ch === ",") { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map(c => c.trim());
+}
+
 function parseCSV(text) {
-  const lines = text.trim().split("\n").filter(Boolean);
+  const lines = text.replace(/\r\n?/g, "\n").trim().split("\n").filter(Boolean);
   if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.replace(/"/g,"").trim().toLowerCase());
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
   const findCol = (...names) => { for (const n of names) { const i = headers.findIndex(h => h.includes(n)); if (i !== -1) return i; } return -1; };
   const dateCol = findCol("date","trans date","posted");
   const descCol = findCol("description","merchant","name","memo");
   const amtCol  = findCol("amount","debit","charge");
   return lines.slice(1).map((line, idx) => {
-    const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) || line.split(",");
-    const clean = cols.map(c => c.replace(/"/g,"").trim());
+    const clean = parseCSVLine(line);
     const raw = parseFloat((clean[amtCol]||"0").replace(/[$,()]/g,"")) || 0;
     const description = clean[descCol] || `Transaction ${idx+1}`;
     return { id: `txn-${Date.now()}-${idx}`, date: clean[dateCol]||"", description, amount: Math.abs(raw) };
@@ -97,15 +109,29 @@ function parseCSV(text) {
 // ── AI Categorization ─────────────────────────────────────────────────────────
 async function categorizeWithAI(uncertain) {
   if (!uncertain.length) return [];
-  const prompt = `You are a personal finance assistant. Categorize each transaction into exactly one of these categories:\n${BUDGET_CATEGORIES.join(", ")}\n\nCard routing hints:\n- Discover: iCloud, credit history\n- Capital One: Transportation\n- BILT: Rent, subscriptions\n- Chase Sapphire: Dining, shopping, groceries\n\nOnly use categories from the list. If unsure, mark confidence "low".\n\nTransactions:\n${JSON.stringify(uncertain.map(t => ({ id: t.id, description: t.description, amount: t.amount, card: t.card })))}\n\nRespond ONLY with a JSON array:\n[{"id":"txn-xxx","category":"Dining","confidence":"high"},...]\n\nconfidence: "high" = auto-approve | "medium"/"low" = send to review`;
+  const prompt = `You are a personal finance assistant. Categorize each transaction into exactly one of these categories:\n${BUDGET_CATEGORIES.join(", ")}\n\nOnly use categories from the list. If unsure, mark confidence "low".\n\nTransactions:\n${JSON.stringify(uncertain.map(t => ({ id: t.id, description: t.description, amount: t.amount, card: t.card })))}\n\nRespond ONLY with a JSON array:\n[{"id":"txn-xxx","category":"Dining","confidence":"high"},...]\n\nconfidence: "high" = auto-approve | "medium"/"low" = send to review`;
   try {
     const res = await fetch("/api/anthropic", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
+      method: "POST",
+      headers: await (window.apiHeaders ? apiHeaders() : { "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 2000,
+        thinking: { type: "disabled" },
+        messages: [{ role: "user", content: prompt }],
+      }),
     });
     const data = await res.json();
-    const raw = data.content?.[0]?.text || "[]";
-    return JSON.parse(raw.replace(/```json|```/g,"").trim());
+    if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+    const raw = (data.content?.[0]?.text || "[]").replace(/```json|```/g,"").trim();
+    /* Extract the JSON array even if the model wrapped it in prose */
+    const start = raw.indexOf("["), end = raw.lastIndexOf("]");
+    const parsed = JSON.parse(start !== -1 && end > start ? raw.slice(start, end + 1) : raw);
+    if (!Array.isArray(parsed)) return [];
+    const CONFIDENCES = new Set(["high", "medium", "low"]);
+    return parsed
+      .filter(r => r && typeof r.id === "string" && BUDGET_CATEGORIES.includes(r.category))
+      .map(r => ({ id: r.id, category: r.category, confidence: CONFIDENCES.has(r.confidence) ? r.confidence : "low" }));
   } catch (e) { console.error("AI categorization failed:", e); return []; }
 }
 
@@ -199,11 +225,12 @@ function UploadPhase({ onFilesReady }) {
   }, []);
 
   const removeFile = key => setUploads(prev => { const next = { ...prev }; delete next[key]; return next; });
+  const setCard = (key, card) => setUploads(prev => ({ ...prev, [key]: { ...prev[key], card } }));
   const uploadedList = Object.entries(uploads);
 
   return (
     <div style={{ maxWidth: 520, margin: "0 auto" }}>
-      <p style={{ color: T.ink3, fontSize: 13, fontFa1mily: T.fBody, marginBottom: 20, lineHeight: 1.6 }}>
+      <p style={{ color: T.ink3, fontSize: 13, fontFamily: T.fBody, marginBottom: 20, lineHeight: 1.6 }}>
         Upload one or more statements. Known merchants and anything confirmed before are auto-approved.
       </p>
 
@@ -237,16 +264,26 @@ function UploadPhase({ onFilesReady }) {
               border: `1px solid color-mix(in oklch, ${T.sageInk}, transparent 70%)`,
               background: `color-mix(in oklch, ${T.sageInk}, transparent 92%)`,
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                 <span style={{ fontFamily: T.fNum, fontSize: 10, color: T.sageInk, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   {upload.fileType}
                 </span>
-                <span style={{ fontSize: 13, color: T.ink, fontFamily: T.fBody }}>{upload.file.name}</span>
+                <span style={{ fontSize: 13, color: T.ink, fontFamily: T.fBody, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{upload.file.name}</span>
               </div>
-              <button onClick={e => { e.stopPropagation(); removeFile(key); }} style={{
-                background: "none", border: "none", color: T.ink3, cursor: "pointer",
-                fontSize: 18, lineHeight: 1, padding: "0 2px",
-              }}>&times;</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <input value={upload.card || ""} onChange={e => setCard(key, e.target.value)}
+                  onClick={e => e.stopPropagation()}
+                  placeholder="card / account"
+                  style={{
+                    background: T.paper, color: T.ink, width: 130,
+                    border: `1px dashed ${T.line2}`, borderRadius: 6,
+                    padding: "3px 6px", fontSize: 11.5, fontFamily: T.fBody, outline: "none",
+                  }} />
+                <button onClick={e => { e.stopPropagation(); removeFile(key); }} style={{
+                  background: "none", border: "none", color: T.ink3, cursor: "pointer",
+                  fontSize: 18, lineHeight: 1, padding: "0 2px",
+                }}>&times;</button>
+              </div>
             </div>
           ))}
         </div>
@@ -496,7 +533,7 @@ function ExpenseCategorizer({ onSave }) {
     setStage("parse");
     await new Promise(r => setTimeout(r, 400));
     let txns = [];
-    for (const [cardId, upload] of Object.entries(uploads)) {
+    for (const upload of Object.values(uploads)) {
       let parsed = [];
       if (upload.fileType === "csv") {
         parsed = parseCSV(upload.text);
@@ -506,15 +543,18 @@ function ExpenseCategorizer({ onSave }) {
             ? { type: "document", source: { type: "base64", media_type: upload.mediaType, data: upload.base64 } }
             : { type: "image",    source: { type: "base64", media_type: upload.mediaType, data: upload.base64 } };
           const res = await fetch("/api/anthropic", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: [contentBlock, { type: "text", text: `Extract all transactions from this credit card statement.\nRespond with ONLY CSV rows (no headers, no markdown) in format: date,description,amount\nPositive numbers for charges only. Skip payments and credits.\nExample: 2026-04-01,SPOTIFY USA,9.99` }] }] }),
+            method: "POST",
+            headers: await (window.apiHeaders ? apiHeaders() : { "Content-Type": "application/json" }),
+            body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 4000, thinking: { type: "disabled" }, messages: [{ role: "user", content: [contentBlock, { type: "text", text: `Extract all transactions from this credit card statement.\nRespond with ONLY CSV rows (no headers, no markdown) in format: date,description,amount\nPositive numbers for charges only. Skip payments and credits.\nExample: 2026-04-01,SPOTIFY USA,9.99` }] }] }),
           });
           const data = await res.json();
+          if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
           const csvText = data.content?.[0]?.text || "";
           parsed = parseCSV("date,description,amount\n" + csvText.trim());
         } catch (e) { console.error(`Failed to extract from ${upload.file.name}:`, e); }
       }
-      txns = [...txns, ...parsed.map(t => ({ ...t, card: cardId }))];
+      const card = upload.card || upload.file.name;
+      txns = [...txns, ...parsed.map(t => ({ ...t, card }))];
     }
     setStage("rules");
     await new Promise(r => setTimeout(r, 500));
