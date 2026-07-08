@@ -149,9 +149,12 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history 
   const totalLiabilities = liabilities.reduce((s, l) => s + l.value, 0);
   const netWorth         = totalAssets - totalLiabilities;
 
-  const chartData  = history.map((h, i) =>
-    i === history.length - 1 ? { ...h, v: netWorth } : h
-  );
+  const multiYear  = new Set(history.map((h) => h.y).filter(Boolean)).size > 1;
+  const chartData  = history.map((h, i) => ({
+    ...h,
+    m: multiYear && h.y ? `${h.m} ’${String(h.y).slice(2)}` : h.m,
+    v: i === history.length - 1 ? netWorth : h.v,
+  }));
   const hasPrior   = history.length >= 2;
   const lastMonthV = hasPrior ? history[history.length - 2].v : null;
   const mom        = hasPrior ? netWorth - lastMonthV : null;

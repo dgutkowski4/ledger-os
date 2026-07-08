@@ -139,6 +139,17 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, incomeRows = [], set
     setExpenses((prev) => [...prev, { id: uid("e"), cat: "", expected: 0, actual: 0, group: "want", note: "" }]);
   };
 
+  /* Remove an imported transaction — also subtracts it from its category's
+     actual and frees its fingerprint so the statement can be re-imported */
+  const removeTxn = (t) => {
+    updateLedger((l) => ({
+      ...l,
+      transactions: (l.transactions || []).filter((x) => x.id !== t.id),
+      expenses: (l.expenses || []).map((e) =>
+        e.cat === t.category ? { ...e, actual: Math.max(0, (e.actual || 0) - t.amount) } : e),
+    }));
+  };
+
   /* Income operations */
   const setIncomeField = (id, field, v) =>
     setIncomeRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: v } : r)));
@@ -327,6 +338,43 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, incomeRows = [], set
           </table>
           <button className="btn-ghost" style={{ marginTop: 12 }} onClick={addIncome}>+ Add income</button>
         </Section>
+
+        {/* Imported transactions — drill-down behind the category actuals */}
+        {(ledger.transactions || []).length > 0 && (
+          <Section eyebrow={selectedMonth} title="Transactions" titleKey="exp-transactions" className="grid__full"
+            right={<span className="sec__range">{ledger.transactions.length} imported</span>}>
+            <table className="catbl">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Card</th>
+                  <th className="num">Amount</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...ledger.transactions]
+                  .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+                  .map((t) => (
+                    <tr key={t.id} className="catrow">
+                      <td className="num dim" style={{ textAlign: "left", whiteSpace: "nowrap" }}>{t.date}</td>
+                      <td>{t.description}</td>
+                      <td><span className={`catchip cat--${CAT_TONE[t.category] || "other"}`}>{t.category}</span></td>
+                      <td className="dim">{t.card || ""}</td>
+                      <td className="num">{fmt(t.amount)}</td>
+                      <td>
+                        <button className="rm" title="Remove transaction" onClick={() => {
+                          if (confirm(`Remove "${t.description}" and subtract ${fmt(t.amount)} from ${t.category}?`)) removeTxn(t);
+                        }}>×</button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </Section>
+        )}
 
         {/* Notes */}
         <Section tone="cream" eyebrow={selectedMonth} title="Notes" titleKey="exp-notes" className="grid__full">

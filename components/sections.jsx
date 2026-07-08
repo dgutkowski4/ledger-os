@@ -86,9 +86,12 @@ function NetWorthSection({ history, netWorth, month = "APRIL" }) {
   const deltaP    = hasPrior && prior ? (delta / prior) * 100 : null;
   const ytdStart  = history.length >= 5 ? history[history.length - 5].v : history[0].v;
   const ytdD      = current - ytdStart;
-  const chartData = history.map((h, i) =>
-    i === history.length - 1 ? { ...h, v: current } : h
-  );
+  const multiYear = new Set(history.map((h) => h.y).filter(Boolean)).size > 1;
+  const chartData = history.map((h, i) => ({
+    ...h,
+    m: multiYear && h.y ? `${h.m} ’${String(h.y).slice(2)}` : h.m,
+    v: i === history.length - 1 ? current : h.v,
+  }));
   return (
     <Section tone="cream" eyebrow={month} title="Net Worth" titleKey="nw-dashboard"
       right={<span className="sec__range">{history.length} month{history.length !== 1 ? "s" : ""}</span>}>

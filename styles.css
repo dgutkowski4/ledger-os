@@ -1206,6 +1206,30 @@ td.num.catbl__ft { font-family: var(--f-num); font-size: 14px; }
 .month-chip:hover .month-chip__del { opacity: 0.5; }
 .month-chip__del:hover { opacity: 1 !important; }
 
+/* === Month rollover banner === */
+.rollover {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: var(--paper-2);
+  border: 1px solid var(--line-2);
+  border-radius: 2px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.rollover__btn {
+  background: var(--accent);
+  color: var(--paper);
+  border: none;
+  border-radius: 2px;
+  padding: 6px 14px;
+  font-family: var(--f-num);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
 /* === Month archive === */
 .month-chip--ghost {
   cursor: pointer;

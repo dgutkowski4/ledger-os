@@ -2,6 +2,30 @@
 
 const uid = (prefix = "x") => prefix + Math.random().toString(36).slice(2, 9);
 
+/* Transaction identity + month routing — shared by the Categorizer and App */
+const TXN_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+const txnFingerprint = (date, desc, amount) =>
+  `${String(date || "").trim()}|${String(desc || "").toLowerCase().replace(/\s+/g, " ").trim()}|${(parseFloat(amount) || 0).toFixed(2)}`;
+
+/* "2026-07-03" → "July 2026". Null when the date lacks a usable 4-digit year,
+   so the caller can fall back to the selected month. ISO dates are parsed by
+   hand — new Date("yyyy-mm-dd") is UTC and shifts a day in western timezones. */
+function parseTxnMonthKey(dateStr) {
+  const s = String(dateStr || "").trim();
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  if (iso) {
+    const mo = parseInt(iso[2], 10);
+    return mo >= 1 && mo <= 12 ? `${TXN_MONTHS[mo - 1]} ${iso[1]}` : null;
+  }
+  if (!/\d{4}/.test(s)) return null;
+  const d = new Date(s);
+  if (isNaN(d)) return null;
+  const y = d.getFullYear();
+  if (y < 2000 || y > 2100) return null;
+  return `${TXN_MONTHS[d.getMonth()]} ${y}`;
+}
+
 const fmt = (n, dec = 2) => {
   const neg = n < 0;
   const s = Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -329,4 +353,4 @@ function LayoutGrid({ id, children, cols = "1fr 1fr" }) {
   );
 }
 
-Object.assign(window, { uid, fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, LayoutGrid });
+Object.assign(window, { uid, txnFingerprint, parseTxnMonthKey, fmt, fmt0, pct, Section, Check, Progress, SoftLine, Donut, LayoutGrid });

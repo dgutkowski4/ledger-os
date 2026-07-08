@@ -60,7 +60,15 @@ function rowsNetWorth(assets, liabilities) {
 }
 
 function rowsNwHistory(history) {
-  return [["Month", "Net Worth"], ...history.map((h) => [h.m, h.v || 0])];
+  return [["Month", "Net Worth"], ...history.map((h) => [h.y ? `${h.m} ${h.y}` : h.m, h.v || 0])];
+}
+
+function rowsTransactionsAllMonths(ledgers) {
+  const rows = [["Month", "Date", "Description", "Category", "Card", "Amount"]];
+  Object.entries(ledgers).forEach(([month, l]) =>
+    (l.transactions || []).forEach((t) =>
+      rows.push([month, t.date || "", t.description || "", t.category || "", t.card || "", t.amount || 0])));
+  return rows;
 }
 
 /* ── Per-tab CSV — exports what the active tab shows ── */
@@ -79,6 +87,12 @@ function downloadTabCSV(tab, ctx) {
       ["Income Source", "Note", "Amount"],
       ...(ledger.income || []).map((i) => [i.label, i.note || "", i.amount || 0]),
     ]);
+    if ((ledger.transactions || []).length) {
+      blocks.push([
+        ["Date", "Description", "Category", "Card", "Amount"],
+        ...ledger.transactions.map((t) => [t.date || "", t.description || "", t.category || "", t.card || "", t.amount || 0]),
+      ]);
+    }
     name = `ledger-expenses-${slug(selectedMonth)}.csv`;
   } else if (tab === "savings") {
     blocks.push([
@@ -104,11 +118,12 @@ function downloadAllXLSX(ctx) {
     return;
   }
   const sheets = [
-    ["Expenses",   rowsExpensesAllMonths(ledgers)],
-    ["Income",     rowsIncomeAllMonths(ledgers)],
-    ["Savings",    rowsSavingsAllMonths(ledgers, savings)],
-    ["Net Worth",  rowsNetWorth(assets, liabilities)],
-    ["NW History", rowsNwHistory(history)],
+    ["Expenses",     rowsExpensesAllMonths(ledgers)],
+    ["Income",       rowsIncomeAllMonths(ledgers)],
+    ["Transactions", rowsTransactionsAllMonths(ledgers)],
+    ["Savings",      rowsSavingsAllMonths(ledgers, savings)],
+    ["Net Worth",    rowsNetWorth(assets, liabilities)],
+    ["NW History",   rowsNwHistory(history)],
   ];
   const wb = XLSX.utils.book_new();
   sheets.forEach(([sheetName, rows]) =>
@@ -116,4 +131,4 @@ function downloadAllXLSX(ctx) {
   XLSX.writeFile(wb, "ledger-data.xlsx");
 }
 
-Object.assign(window, { downloadTabCSV, downloadAllXLSX });
+Object.assign(window, { downloadFile, downloadTabCSV, downloadAllXLSX });

@@ -342,7 +342,7 @@ function ProcessingPhase({ stage }) {
 }
 
 // ── Review Phase ──────────────────────────────────────────────────────────────
-function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) {
+function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn, dupesSkipped = 0, currentMonth }) {
   const [customCategories, setCustomCategories] = useState([]);
   const needsReview  = transactions.filter(t => t.status === "needs-review" || t.status === "uncategorized");
   const approved     = transactions.filter(t => t.status === "auto" || t.status === "confirmed");
@@ -383,12 +383,17 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
 
       {/* Stats */}
-      <div className="catz-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 28 }}>
+      <div className="catz-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: dupesSkipped > 0 ? 12 : 28 }}>
         {statCard("Total spend",   `$${total.toFixed(2)}`, T.ink)}
         {statCard("Auto-approved", approved.length,         T.sageInk)}
         {statCard("Needs review",  needsReview.length,      T.clayInk)}
         {statCard("From memory",   learnedCount,            T.lilacInk)}
       </div>
+      {dupesSkipped > 0 && (
+        <div style={{ marginBottom: 24, padding: "8px 12px", borderRadius: 2, border: `1px solid ${T.line2}`, fontSize: 12, color: T.ink2, fontFamily: T.fBody }}>
+          {dupesSkipped} duplicate transaction{dupesSkipped !== 1 ? "s" : ""} skipped — already imported.
+        </div>
+      )}
 
       {/* Needs review */}
       {needsReview.length > 0 && (
@@ -497,7 +502,19 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
       )}
 
       {/* Save */}
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+        {transactions.length > 0 && (() => {
+          const monthCounts = {};
+          transactions.forEach((t) => {
+            const k = (typeof parseTxnMonthKey === "function" && parseTxnMonthKey(t.date)) || currentMonth || "current month";
+            monthCounts[k] = (monthCounts[k] || 0) + 1;
+          });
+          return (
+            <span style={{ fontSize: 11.5, color: T.ink3, fontFamily: T.fNum }}>
+              saving to: {Object.entries(monthCounts).map(([k, c]) => `${k} ×${c}`).join(" · ")}
+            </span>
+          );
+        })()}
         <button onClick={() => onSave(transactions)} disabled={needsReview.length > 0} style={{
           background: needsReview.length === 0 ? T.accent : T.paper3,
           color: needsReview.length === 0 ? T.paper : T.ink3,
@@ -513,10 +530,11 @@ function ReviewPhase({ transactions, onUpdate, onConfirmAll, onSave, onLearn }) 
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-function ExpenseCategorizer({ onSave }) {
+function ExpenseCategorizer({ onSave, existingFps, currentMonth }) {
   const [phase, setPhase]               = useState("upload");
   const [processingStage, setStage]     = useState("parse");
   const [transactions, setTransactions] = useState([]);
+  const [dupesSkipped, setDupesSkipped] = useState(0);
   const [memory, setMemory]             = useState(loadMemory);
 
   const handleLearn = useCallback((txnId, category) => {
@@ -558,6 +576,16 @@ function ExpenseCategorizer({ onSave }) {
       const card = upload.card || upload.file.name;
       txns = [...txns, ...parsed.map(t => ({ ...t, card }))];
     }
+    /* Skip anything already imported (and in-batch repeats) instead of double-counting */
+    const seenFps = new Set(existingFps || []);
+    let dupes = 0;
+    txns = txns.filter(t => {
+      const fp = txnFingerprint(t.date, t.description, t.amount);
+      if (seenFps.has(fp)) { dupes++; return false; }
+      seenFps.add(fp);
+      return true;
+    });
+    setDupesSkipped(dupes);
     setStage("rules");
     await new Promise(r => setTimeout(r, 500));
     txns = txns.map(t => {
@@ -579,7 +607,7 @@ function ExpenseCategorizer({ onSave }) {
     await new Promise(r => setTimeout(r, 300));
     setTransactions(txns);
     setPhase("review");
-  }, []);
+  }, [existingFps]);
 
   const confirmAll = useCallback(() => {
     const updated = { ...memory };
@@ -644,6 +672,8 @@ function ExpenseCategorizer({ onSave }) {
           onConfirmAll={confirmAll}
           onSave={txns => onSave?.(txns)}
           onLearn={handleLearn}
+          dupesSkipped={dupesSkipped}
+          currentMonth={currentMonth}
         />
       )}
     </div>

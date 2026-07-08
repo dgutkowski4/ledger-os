@@ -36,6 +36,8 @@ const canon = (obj) => JSON.stringify(Object.keys(obj).sort().map((k) => [k, obj
 
 let currentUser = null;
 let uploadTimer = null;
+let pendingLocal = false;      // local edits waiting to upload
+let lastKnownRemote = null;    // cloud updated_at we last saw
 let syncStatus = "off"; // off | syncing | synced | error
 let statusListeners = [];
 const setSyncStatus = (s) => { syncStatus = s; statusListeners.forEach((fn) => fn(s)); };
@@ -43,21 +45,42 @@ const setSyncStatus = (s) => { syncStatus = s; statusListeners.forEach((fn) => f
 async function uploadNow() {
   if (!sb || !currentUser) return;
   setSyncStatus("syncing");
-  const { error } = await sb.from("ledgers").upsert({
+  const stamp = new Date().toISOString();
+  const { data: row, error } = await sb.from("ledgers").upsert({
     user_id: currentUser.id,
     data: snapshot(),
-    updated_at: new Date().toISOString(),
-  });
-  if (error) { console.error("Sync upload failed:", error.message); setSyncStatus("error"); }
-  else setSyncStatus("synced");
+    updated_at: stamp,
+  }).select("updated_at").maybeSingle();
+  pendingLocal = false;
+  if (error) { console.error("Sync upload failed:", error.message); setSyncStatus("error"); return; }
+  lastKnownRemote = row?.updated_at || stamp;
+  setSyncStatus("synced");
 }
 
 function scheduleUpload() {
   if (!sb || !currentUser) return;
   clearTimeout(uploadTimer);
+  pendingLocal = true;
   setSyncStatus("syncing");
   uploadTimer = setTimeout(uploadNow, 1200);
 }
+
+/* Refresh from the cloud when this tab regains focus, so an idle device
+   doesn't clobber newer data from another device with stale edits. Skipped
+   while local changes are pending upload — active edits win. */
+async function pullRemote() {
+  if (!sb || !currentUser || pendingLocal) return;
+  const { data: row, error } = await sb.from("ledgers")
+    .select("data, updated_at").eq("user_id", currentUser.id).maybeSingle();
+  if (error || !row || row.updated_at === lastKnownRemote) return;
+  lastKnownRemote = row.updated_at;
+  if (row.data && Object.keys(row.data).length && canon(row.data) !== canon(snapshot())) {
+    applySnapshot(row.data);
+    window.location.reload();
+  }
+}
+window.addEventListener("focus", pullRemote);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pullRemote(); });
 
 /* Every app write goes through localStorage — patch it so all state changes
    (ledgers, section titles, layout, merchant memory) trigger a debounced upload. */
@@ -67,12 +90,13 @@ localStorage.removeItem = (k) => { origRemove(k); if (syncedKey(k)) scheduleUplo
 /* On sign-in: cloud copy wins if it exists; otherwise push local data up. */
 async function initialSync(user) {
   currentUser = user;
-  const { data: row, error } = await sb.from("ledgers").select("data").eq("user_id", user.id).maybeSingle();
+  const { data: row, error } = await sb.from("ledgers").select("data, updated_at").eq("user_id", user.id).maybeSingle();
   if (error) {
     console.error("Sync load failed:", error.message);
     setSyncStatus("error");
     return;
   }
+  lastKnownRemote = row?.updated_at || null;
   if (row && row.data && Object.keys(row.data).length) {
     if (canon(row.data) !== canon(snapshot())) {
       applySnapshot(row.data);
@@ -103,6 +127,32 @@ async function ledgerReset() {
   }
   localStorage.clear();
   window.location.reload();
+}
+
+/* Backup / restore — full data snapshot as a .json file. Works signed out too. */
+function ledgerBackup() {
+  const payload = { _type: "ledger-os-backup", exportedAt: new Date().toISOString(), data: snapshot() };
+  window.downloadFile(
+    `ledger-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    JSON.stringify(payload, null, 2),
+    "application/json"
+  );
+}
+
+async function ledgerRestore(file) {
+  try {
+    const parsed = JSON.parse(await file.text());
+    const data = parsed?._type === "ledger-os-backup" ? parsed.data : null;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      alert("Not a valid Ledger OS backup file.");
+      return;
+    }
+    applySnapshot(data);
+    if (sb && currentUser) await uploadNow();
+    window.location.reload();
+  } catch (e) {
+    alert(`Restore failed: ${e.message}`);
+  }
 }
 
 /* Headers for the Anthropic proxy — includes the session token when signed in */
@@ -207,4 +257,4 @@ function AuthWidget() {
   );
 }
 
-Object.assign(window, { AuthWidget, apiHeaders, ledgerReset });
+Object.assign(window, { AuthWidget, apiHeaders, ledgerReset, ledgerBackup, ledgerRestore });

@@ -1,6 +1,7 @@
 /* Tweaks panel — density + data reset */
 
 function TweaksPanel({ density, setDensity, onClose }) {
+  const fileRef = React.useRef(null);
   return (
     <div className="tweaks">
       <div className="tweaks__hd">
@@ -23,14 +24,31 @@ function TweaksPanel({ density, setDensity, onClose }) {
         </div>
         <div style={{ paddingTop: 8, borderTop: "1px solid color-mix(in oklch, var(--ink), transparent 88%)" }}>
           <span className="tweaks__lbl">Data</span>
-          <button className="tweaks__opt" style={{ color: "oklch(0.55 0.15 25)" }}
-            onClick={() => {
-              if (!confirm("Reset all data? This deletes your cloud copy too and cannot be undone.")) return;
-              if (window.ledgerReset) window.ledgerReset();
-              else { localStorage.clear(); window.location.reload(); }
-            }}>
-            Reset all data
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button className="tweaks__opt" onClick={() => window.ledgerBackup && ledgerBackup()}>
+              Back up data (.json)
+            </button>
+            <button className="tweaks__opt" onClick={() => fileRef.current?.click()}>
+              Restore from backup…
+            </button>
+            <input ref={fileRef} type="file" accept=".json,application/json" style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && window.ledgerRestore &&
+                    confirm("Replace ALL current data (local and cloud) with this backup? This cannot be undone.")) {
+                  ledgerRestore(f);
+                }
+                e.target.value = "";
+              }} />
+            <button className="tweaks__opt" style={{ color: "var(--neg)" }}
+              onClick={() => {
+                if (!confirm("Reset all data? This deletes your cloud copy too and cannot be undone.")) return;
+                if (window.ledgerReset) window.ledgerReset();
+                else { localStorage.clear(); window.location.reload(); }
+              }}>
+              Reset all data
+            </button>
+          </div>
         </div>
       </div>
     </div>

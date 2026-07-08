@@ -30,7 +30,7 @@ const SAVINGS = [
 
 /* Seed history starts at the current month with $0 */
 const NETWORTH_HISTORY = [
-  { m: new Date().toLocaleString("en-US", { month: "short" }), v: 0 },
+  { m: new Date().toLocaleString("en-US", { month: "short" }), y: new Date().getFullYear(), v: 0 },
 ];
 
 Object.assign(window, { INCOME, EXPENSES, SAVINGS, NETWORTH_HISTORY });

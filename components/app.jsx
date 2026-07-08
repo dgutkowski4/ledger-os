@@ -11,6 +11,24 @@ function lsGet(key, fallback) {
   catch { return fallback; }
 }
 
+/* Older NW history points lack a year ("Jul" collides across years) — infer
+   years by walking backwards from today, decrementing at each Dec→Jan wrap. */
+function migrateNwHistory(hist) {
+  const filtered = (hist || []).filter((h) => MONTHS_SHORT.includes(h.m));
+  if (filtered.every((h) => h.y)) return filtered;
+  const now = new Date();
+  let year = now.getFullYear();
+  const last = filtered[filtered.length - 1];
+  if (last && !last.y && MONTHS_SHORT.indexOf(last.m) > now.getMonth()) year -= 1;
+  const out = new Array(filtered.length);
+  for (let i = filtered.length - 1; i >= 0; i--) {
+    if (i < filtered.length - 1 && MONTHS_SHORT.indexOf(filtered[i].m) > MONTHS_SHORT.indexOf(filtered[i + 1].m)) year -= 1;
+    out[i] = filtered[i].y ? filtered[i] : { ...filtered[i], y: year };
+    year = out[i].y;
+  }
+  return out;
+}
+
 /* Ensure every expense row has a stable id and every month has income rows.
    Older saved data (and the seed) identified rows by category name only. */
 function migrateLedgers(ledgers) {
@@ -71,7 +89,7 @@ function App() {
   const [nwAssets,       setNwAssets]       = React.useState(() => lsGet("ledger_nw_assets",       window.NW_ASSETS_SEED));
   const [nwLiabilities,  setNwLiabilities]  = React.useState(() => lsGet("ledger_nw_liabilities",  window.NW_LIABILITIES_SEED));
   const [nwHistory,      setNwHistory]      = React.useState(() =>
-    lsGet("ledger_nw_history", window.NETWORTH_HISTORY).filter((h) => MONTHS_SHORT.includes(h.m))
+    migrateNwHistory(lsGet("ledger_nw_history", window.NETWORTH_HISTORY))
   );
   const [density,        setDensity]        = React.useState(() => lsGet("ledger_density",         "relaxed"));
   const [savingsNotes, setSavingsNotes] = React.useState(() => lsGet("ledger_savings_notes", {}));
@@ -207,6 +225,12 @@ function App() {
   const canSavUndo = savHistoryIdx > 0;
   const canSavRedo = savHistoryIdx < savHistoryRef.current.length - 1;
 
+  /* Pay Day Planner write-back: a checked planner row counts as paid for that pay day */
+  const setPlannerPaid = (svId, colKey, amount) => {
+    const field = colKey === "pd1" ? "paid1" : "paid2";
+    applySavings((prev) => prev.map((r) => (r.id === svId ? { ...r, [field]: amount } : r)));
+  };
+
   /* Undo / redo for Net Worth (assets + liabilities tracked together) */
   const nwEditHistoryRef = React.useRef([{ assets: nwAssets, liabilities: nwLiabilities }]);
   const [nwEditHistoryIdx, setNwEditHistoryIdx] = React.useState(0);
@@ -269,6 +293,44 @@ function App() {
   const leftover     = incomeTotal - actualTotal;
   const savingsTotal = effectiveSavings.reduce((s, r) => s + r.paid1 + r.paid2, 0);
 
+  /* Month rollover — offer to start the current calendar month when it doesn't exist yet */
+  const monthDate = (k) => {
+    const [name, y] = k.split(" ");
+    return new Date(parseInt(y, 10) || 0, Math.max(0, MONTHS_LIST.indexOf(name)), 1);
+  };
+  const latestMonth = months.length
+    ? months.slice().sort((a, b) => monthDate(a) - monthDate(b))[months.length - 1]
+    : null;
+  const [rolloverDismissed, setRolloverDismissed] = React.useState(() =>
+    localStorage.getItem("ledger_rollover_dismissed") || ""
+  );
+  const showRollover = latestMonth && !ledgers[DEFAULT_MONTH] && rolloverDismissed !== DEFAULT_MONTH;
+
+  const dismissRollover = () => {
+    localStorage.setItem("ledger_rollover_dismissed", DEFAULT_MONTH);
+    setRolloverDismissed(DEFAULT_MONTH);
+  };
+
+  const startCurrentMonth = () => {
+    const source = ledgers[latestMonth] || { expenses: [] };
+    const [name, y] = DEFAULT_MONTH.split(" ");
+    setNwHistory((prev) => {
+      const updated = prev.map((h, i) => (i === prev.length - 1 ? { ...h, v: liveNetWorth } : h));
+      return [...updated, { m: name.slice(0, 3), y: parseInt(y, 10), v: liveNetWorth }];
+    });
+    setLedgers((prev) => ({
+      ...prev,
+      [DEFAULT_MONTH]: {
+        expenses: (source.expenses || []).map((e) => ({ ...e, actual: 0 })),
+        income: (source.income || []).map((r) => ({ ...r })),
+        savingsPaid: {},
+        savingsTargets: source.savingsTargets || {},
+      },
+    }));
+    setSavings((prev) => prev.map((r) => ({ ...r, paid1: 0, paid2: 0 })));
+    setSelectedMonth(DEFAULT_MONTH);
+  };
+
   /* Archive / restore — archived months keep their data (and stay in exports)
      but leave the chip bar; they live in the "Archived" dropdown. */
   const archiveMonth = (key) => {
@@ -290,8 +352,9 @@ function App() {
       ? (remaining[months.indexOf(key)] || remaining[months.indexOf(key) - 1] || remaining[0])
       : selectedMonth;
     const shortLabel = key.split(" ")[0].slice(0, 3);
+    const yearOfKey  = parseInt(key.split(" ")[1], 10);
     setNwHistory((prev) => {
-      const idx = prev.findLastIndex((h) => h.m === shortLabel);
+      const idx = prev.findLastIndex((h) => h.m === shortLabel && (!h.y || !yearOfKey || h.y === yearOfKey));
       if (idx === -1) return prev;
       return prev.filter((_, i) => i !== idx);
     });
@@ -330,10 +393,11 @@ function App() {
 
     /* Append new NW history entry for the new month */
     const newMonthShort = key.split(" ")[0].slice(0, 3);
+    const newMonthYear  = parseInt(key.split(" ")[1], 10) || new Date().getFullYear();
     setNwHistory((prev) => {
       /* Replace last point (current) with live value, then add new blank entry */
       const updated = prev.map((h, i) => i === prev.length - 1 ? { ...h, v: liveNetWorth } : h);
-      return [...updated, { m: newMonthShort, v: liveNetWorth }];
+      return [...updated, { m: newMonthShort, y: newMonthYear, v: liveNetWorth }];
     });
 
     setLedgers((prev) => ({
@@ -351,21 +415,55 @@ function App() {
     setSelectedMonth(key);
   };
 
-  /* Goes through applyExpenses so an imported batch is a single undoable step */
+  /* Fingerprints of every transaction ever imported — the Categorizer uses
+     this to skip re-uploaded statements instead of double-counting them */
+  const existingTxnFps = React.useMemo(() => {
+    const s = new Set();
+    Object.values(ledgers).forEach((l) =>
+      (l.transactions || []).forEach((t) => s.add(txnFingerprint(t.date, t.description, t.amount))));
+    return s;
+  }, [ledgers]);
+
+  /* Persist imported transactions, dedup against prior imports, and route each
+     transaction to the month its date falls in (fallback: selected month). */
   const handleCategorizerSave = (txns) => {
-    const totals = {};
-    txns.filter(t => t.confirmedCategory).forEach(t => {
-      totals[t.confirmedCategory] = (totals[t.confirmedCategory] || 0) + t.amount;
+    const confirmed = txns.filter((t) => t.confirmedCategory);
+    const byMonth = {};
+    confirmed.forEach((t) => {
+      const key = parseTxnMonthKey(t.date) || selectedMonth;
+      (byMonth[key] = byMonth[key] || []).push(t);
     });
-    const matched = new Set();
-    const updated = expenses.map((e) => {
-      if (e.cat in totals) { matched.add(e.cat); return { ...e, actual: (e.actual || 0) + totals[e.cat] }; }
-      return e;
+
+    const next = { ...ledgers };
+    Object.entries(byMonth).forEach(([key, list]) => {
+      const ledger = next[key] || { expenses: [], income: [] };
+      const seen = new Set((ledger.transactions || []).map((t) => txnFingerprint(t.date, t.description, t.amount)));
+      const fresh = list.filter((t) => !seen.has(txnFingerprint(t.date, t.description, t.amount)));
+      if (!fresh.length) return;
+      const totals = {};
+      fresh.forEach((t) => { totals[t.confirmedCategory] = (totals[t.confirmedCategory] || 0) + t.amount; });
+      const matched = new Set();
+      const updatedExpenses = (ledger.expenses || []).map((e) => {
+        if (e.cat in totals) { matched.add(e.cat); return { ...e, actual: (e.actual || 0) + totals[e.cat] }; }
+        return e;
+      });
+      const newRows = Object.entries(totals)
+        .filter(([cat]) => !matched.has(cat))
+        .map(([cat, actual]) => ({ id: uid("e"), cat, expected: 0, actual, group: "want", note: "imported" }));
+      next[key] = {
+        ...ledger,
+        expenses: [...updatedExpenses, ...newRows],
+        transactions: [
+          ...(ledger.transactions || []),
+          ...fresh.map((t) => ({ id: t.id, date: t.date, description: t.description, amount: t.amount, category: t.confirmedCategory, card: t.card || "" })),
+        ],
+      };
     });
-    const newRows = Object.entries(totals)
-      .filter(([cat]) => !matched.has(cat))
-      .map(([cat, actual]) => ({ id: uid("e"), cat, expected: 0, actual, group: "want", note: "imported" }));
-    applyExpenses([...updated, ...newRows]);
+
+    setLedgers(next);
+    /* Imports can span months, so they reset the Expenses undo history instead of joining it */
+    const sel = next[selectedMonth];
+    if (sel) { expHistoryRef.current = [{ expenses: sel.expenses, income: sel.income || [] }]; setExpHistoryIdx(0); }
     setTab("expenses");
   };
 
@@ -439,6 +537,17 @@ function App() {
           </button>
         </div>
       </nav>
+
+      {/* Month rollover banner */}
+      {showRollover && (
+        <div className="rollover">
+          <span>It’s {DEFAULT_MONTH.split(" ")[0]} — start a new month from {latestMonth}’s budget?</span>
+          <span style={{ display: "flex", gap: 8 }}>
+            <button className="rollover__btn" onClick={startCurrentMonth}>Start {DEFAULT_MONTH.split(" ")[0]}</button>
+            <button className="btn-ghost" onClick={dismissRollover}>Dismiss</button>
+          </span>
+        </div>
+      )}
 
       {/* Toolbar — month selector + undo/redo for all tabs */}
       <div className="xbar">
@@ -538,7 +647,8 @@ function App() {
               selectedMonth={selectedMonth}
               savingsRows={savings}
               plannerSavings={plannerSavings}
-              setPlannerSavings={setPlannerSavings} />
+              setPlannerSavings={setPlannerSavings}
+              onPaidChange={setPlannerPaid} />
           </div>
         </LayoutGrid>
       )}
@@ -569,7 +679,7 @@ function App() {
 
       {/* Categorizer tab */}
       {tab === "categorizer" && (
-        <ExpenseCategorizer onSave={handleCategorizerSave} />
+        <ExpenseCategorizer onSave={handleCategorizerSave} existingFps={existingTxnFps} currentMonth={selectedMonth} />
       )}
 
       {/* Net Worth tab */}

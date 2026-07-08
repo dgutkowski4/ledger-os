@@ -46,7 +46,7 @@ function pdLsGet(key, fallback) {
   catch { return fallback; }
 }
 
-function PayDayPlanner({ month = "APRIL", selectedMonth = "", savingsRows = [], plannerSavings = {}, setPlannerSavings }) {
+function PayDayPlanner({ month = "APRIL", selectedMonth = "", savingsRows = [], plannerSavings = {}, setPlannerSavings, onPaidChange }) {
   const mk = (k) => `${k}_${selectedMonth}`;
   const [dates, setDates] = React.useState(() => pdLsGet(mk("ledger_pd_dates"), ["", ""]));
   const [pay,   setPay]   = React.useState(() => pdLsGet(mk("ledger_pd_pay"),   [0, 0]));
@@ -76,6 +76,12 @@ function PayDayPlanner({ month = "APRIL", selectedMonth = "", savingsRows = [], 
       const cur = prev[svId] || { pd1: { checked: false, amount: 0 }, pd2: { checked: false, amount: 0 } };
       return { ...prev, [svId]: { ...cur, [col]: { ...cur[col], ...patch } } };
     });
+    /* Write back to the month's savings tracker: a checked row counts as paid */
+    if (onPaidChange) {
+      const merged = { ...getPD(svId)[col], ...patch };
+      if ("checked" in patch) onPaidChange(svId, col, patch.checked ? merged.amount || 0 : 0);
+      else if ("amount" in patch && merged.checked) onPaidChange(svId, col, patch.amount || 0);
+    }
   };
 
   const renderColumn = (colKey, idx) => {
