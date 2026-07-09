@@ -345,8 +345,14 @@ function App() {
   };
 
   /* Delete a month — switches selection to adjacent month first, removes NW history entry */
-  const deleteMonth = (key) => {
-    if (!confirm(`Delete "${key}" and all its data?`)) return;
+  const deleteMonth = async (key) => {
+    const ok = await appConfirm({
+      title: "Delete month",
+      message: `Delete "${key}" and all its data? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     const remaining = months.filter((m) => m !== key);
     const nextSelected = key === selectedMonth
       ? (remaining[months.indexOf(key)] || remaining[months.indexOf(key) - 1] || remaining[0])
@@ -435,11 +441,13 @@ function App() {
     });
 
     const next = { ...ledgers };
+    const summary = [];
     Object.entries(byMonth).forEach(([key, list]) => {
       const ledger = next[key] || { expenses: [], income: [] };
       const seen = new Set((ledger.transactions || []).map((t) => txnFingerprint(t.date, t.description, t.amount)));
       const fresh = list.filter((t) => !seen.has(txnFingerprint(t.date, t.description, t.amount)));
       if (!fresh.length) return;
+      summary.push(`${key} ×${fresh.length}`);
       const totals = {};
       fresh.forEach((t) => { totals[t.confirmedCategory] = (totals[t.confirmedCategory] || 0) + t.amount; });
       const matched = new Set();
@@ -464,6 +472,7 @@ function App() {
     /* Imports can span months, so they reset the Expenses undo history instead of joining it */
     const sel = next[selectedMonth];
     if (sel) { expHistoryRef.current = [{ expenses: sel.expenses, income: sel.income || [] }]; setExpHistoryIdx(0); }
+    if (window.toast) toast(summary.length ? `Imported — ${summary.join(" · ")}` : "Nothing new to import", summary.length ? "pos" : "neutral");
     setTab("expenses");
   };
 
@@ -474,43 +483,41 @@ function App() {
     assets: nwAssets, liabilities: nwLiabilities, history: nwHistory,
   };
 
-  const tabLabel = {
-    dashboard:   "Dashboard",
-    expenses:    "Monthly Expenses",
-    savings:     "Savings & Investments",
-    networth:    "Net Worth",
-    categorizer: "Expense Categorizer",
-  };
-
   return (
     <div className={`page density-${density}`}>
-      {/* Page header */}
-      <header className="pagehd">
-        <div className="pagehd__l">
-          <span className="pagehd__eyebrow"></span>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-            <h1 className="pagehd__title">{tabLabel[tab]}</h1>
-          </div>
+      {/* Top bar — wordmark + account */}
+      <header className="topbar">
+        <div className="topbar__brand">
+          <span className="topbar__mark">LEDGER</span>
+          <span className="topbar__sub">OS / {String(new Date().getMonth() + 1).padStart(2, "0")}.{new Date().getFullYear()}</span>
         </div>
-        <div className="pagehd__r">
-          <div className="pagehd__stat">
-            <span className="l">Income</span>
-            <span className="v num">{fmt0(incomeTotal)}</span>
-          </div>
-          <div className="pagehd__stat">
-            <span className="l">Spent</span>
-            <span className="v num">{fmt0(actualTotal)}</span>
-          </div>
-          <div className="pagehd__stat">
-            <span className="l">Saved &amp; Invested</span>
-            <span className="v num">{fmt0(savingsTotal)}</span>
-          </div>
-          <div className="pagehd__stat">
-            <span className="l">Leftover</span>
-            <span className={`v num ${leftover >= 0 ? "pos" : "neg"}`}>{fmt0(leftover)}</span>
-          </div>
+        <div className="topbar__right">
+          <AuthWidget />
+          <button className="topbar__btn" onClick={() => setTweaksOpen((v) => !v)} title="Tweaks">
+            <Icon name="settings" size={14} />
+          </button>
         </div>
       </header>
+
+      {/* Header stats strip */}
+      <div className="statstrip">
+        <div className="statstrip__cell">
+          <span className="statstrip__l">Income</span>
+          <span className="statstrip__v">{fmt0(incomeTotal)}</span>
+        </div>
+        <div className="statstrip__cell">
+          <span className="statstrip__l">Spent</span>
+          <span className="statstrip__v">{fmt0(actualTotal)}</span>
+        </div>
+        <div className="statstrip__cell">
+          <span className="statstrip__l">Saved &amp; Invested</span>
+          <span className="statstrip__v">{fmt0(savingsTotal)}</span>
+        </div>
+        <div className="statstrip__cell">
+          <span className="statstrip__l">Leftover</span>
+          <span className={`statstrip__v ${leftover >= 0 ? "pos" : "neg"}`}>{fmt0(leftover)}</span>
+        </div>
+      </div>
 
       {/* Tab nav */}
       <nav className="tabs">
@@ -527,15 +534,6 @@ function App() {
             {t.l}
           </button>
         ))}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 2 }}>
-          <AuthWidget />
-          <button
-            className="tabs__b"
-            onClick={() => setTweaksOpen((v) => !v)}
-            title="Tweaks">
-            ⚙
-          </button>
-        </div>
       </nav>
 
       {/* Month rollover banner */}
@@ -560,9 +558,9 @@ function App() {
                   <button className="month-chip__label" onClick={() => setSelectedMonth(m)} title={m}>
                     {chipLabel(m)}
                   </button>
-                  <button className="month-chip__del" onClick={() => archiveMonth(m)} title={`Archive ${m}`}>⊟</button>
+                  <button className="month-chip__del" onClick={() => archiveMonth(m)} title={`Archive ${m}`}><Icon name="archive" size={10} /></button>
                   {months.length > 1 && (
-                    <button className="month-chip__del" onClick={() => deleteMonth(m)} title={`Delete ${m}`}>×</button>
+                    <button className="month-chip__del" onClick={() => deleteMonth(m)} title={`Delete ${m}`}><Icon name="x" size={9} /></button>
                   )}
                 </span>
               ))}
@@ -570,21 +568,21 @@ function App() {
                 <span className="month-chip is-on month-chip--arch">
                   <button className="month-chip__label" title={`${selectedMonth} (archived)`}>{chipLabel(selectedMonth)}</button>
                   <button className="month-chip__del" style={{ opacity: 0.7 }}
-                    onClick={() => unarchiveMonth(selectedMonth)} title={`Restore ${selectedMonth}`}>↺</button>
+                    onClick={() => unarchiveMonth(selectedMonth)} title={`Restore ${selectedMonth}`}><Icon name="restore" size={10} /></button>
                 </span>
               )}
               {archivedMonths.length > 0 && (
                 <div className="arch" ref={archRef}>
                   <button className="month-chip month-chip--ghost" onClick={() => setArchOpen((o) => !o)}>
-                    Archived ({archivedMonths.length}) ▾
+                    Archived ({archivedMonths.length}) <Icon name="chevron" size={9} style={{ marginLeft: 3 }} />
                   </button>
                   {archOpen && (
                     <div className="arch-pop">
                       {archivedMonths.map((m) => (
                         <div key={m} className="arch-row">
                           <button className="arch-name" onClick={() => { setSelectedMonth(m); setArchOpen(false); }}>{m}</button>
-                          <button className="arch-act" title={`Restore ${m}`} onClick={() => unarchiveMonth(m)}>↺</button>
-                          <button className="arch-act arch-act--del" title={`Delete ${m}`} onClick={() => deleteMonth(m)}>×</button>
+                          <button className="arch-act" title={`Restore ${m}`} onClick={() => unarchiveMonth(m)}><Icon name="restore" size={11} /></button>
+                          <button className="arch-act arch-act--del" title={`Delete ${m}`} onClick={() => deleteMonth(m)}><Icon name="x" size={11} /></button>
                         </div>
                       ))}
                     </div>
@@ -601,18 +599,18 @@ function App() {
             const cu = tab === "savings" ? canSavUndo : tab === "networth" ? canNwUndo : canUndo;
             const cr = tab === "savings" ? canSavRedo : tab === "networth" ? canNwRedo : canRedo;
             return (<>
-              <button className="btn-ghost" style={{ fontSize: 12, padding: "4px 12px", opacity: cu ? 1 : 0.4 }}
-                disabled={!cu} onClick={u} title="Undo (⌘Z)">↩ Undo</button>
-              <button className="btn-ghost" style={{ fontSize: 12, padding: "4px 12px", opacity: cr ? 1 : 0.4 }}
-                disabled={!cr} onClick={r} title="Redo (⌘⇧Z)">↪ Redo</button>
+              <button className="btn-ghost" style={{ padding: "5px 12px", opacity: cu ? 1 : 0.4 }}
+                disabled={!cu} onClick={u} title="Undo (⌘Z)"><Icon name="undo" size={11} style={{ marginRight: 5 }} />Undo</button>
+              <button className="btn-ghost" style={{ padding: "5px 12px", opacity: cr ? 1 : 0.4 }}
+                disabled={!cr} onClick={r} title="Redo (⌘⇧Z)"><Icon name="redo" size={11} style={{ marginRight: 5 }} />Redo</button>
             </>);
           })()}
           {["dashboard", "expenses", "savings", "networth"].includes(tab) && (
             <button className="btn-ghost" onClick={() => downloadTabCSV(tab, exportCtx)}
-              title="Download this tab's data as CSV">⬇ CSV</button>
+              title="Download this tab's data as CSV"><Icon name="download" size={11} style={{ marginRight: 5 }} />CSV</button>
           )}
           <button className="btn-ghost" onClick={() => downloadAllXLSX(exportCtx)}
-            title="Download all data as an Excel workbook">⬇ All (.xlsx)</button>
+            title="Download all data as an Excel workbook"><Icon name="download" size={11} style={{ marginRight: 5 }} />All (.xlsx)</button>
           {tab !== "networth" && (addingMonth ? (
             <input
               className="month-chip-input"

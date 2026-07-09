@@ -271,7 +271,7 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history 
                     <CellMoney value={a.value} onChange={(v) => updateAsset(a.id, { value: v })} />
                   </td>
                   <td>
-                    <button className="rm" onClick={() => removeAsset(a.id)} title="Remove">×</button>
+                    <button className="rm" onClick={() => removeAsset(a.id)} title="Remove"><Icon name="x" size={10} /></button>
                   </td>
                 </tr>
               ))}
@@ -319,7 +319,7 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history 
                     <CellMoney value={l.value} onChange={(v) => updateLiability(l.id, { value: v })} />
                   </td>
                   <td>
-                    <button className="rm" onClick={() => removeLiability(l.id)} title="Remove">×</button>
+                    <button className="rm" onClick={() => removeLiability(l.id)} title="Remove"><Icon name="x" size={10} /></button>
                   </td>
                 </tr>
               ))}

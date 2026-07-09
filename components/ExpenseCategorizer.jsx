@@ -281,10 +281,10 @@ function UploadPhase({ onFilesReady }) {
                     border: `1px dashed ${T.line2}`, borderRadius: 2,
                     padding: "3px 6px", fontSize: 11.5, fontFamily: T.fBody, outline: "none",
                   }} />
-                <button onClick={e => { e.stopPropagation(); removeFile(key); }} style={{
+                <button onClick={e => { e.stopPropagation(); removeFile(key); }} title="Remove file" style={{
                   background: "none", border: "none", color: T.ink3, cursor: "pointer",
-                  fontSize: 18, lineHeight: 1, padding: "0 2px",
-                }}>&times;</button>
+                  lineHeight: 1, padding: "2px", display: "inline-flex",
+                }}><Icon name="x" size={11} /></button>
               </div>
             </div>
           ))}

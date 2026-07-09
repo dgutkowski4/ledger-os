@@ -28,7 +28,7 @@ function PDRow({ item, column, onToggle, onAmount, onName, onRemove }) {
       </td>
       <td className="pd-rm">
         {onRemove
-          ? <button className="rm" title="Remove" onClick={onRemove}>×</button>
+          ? <button className="rm" title="Remove" onClick={onRemove}><Icon name="x" size={10} /></button>
           : <span />}
       </td>
     </tr>

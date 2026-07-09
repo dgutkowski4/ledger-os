@@ -200,9 +200,9 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, incomeRows = [], set
         </td>
         <td className={`num ${remain < 0 ? "neg" : "muted"}`}>
           {remain < 0 ? `−${fmt0(Math.abs(remain))}` : fmt0(remain)}
-          <button className="rm" onClick={() => {
-            if (confirm(`Remove "${e.cat}"?`)) removeRow(e.id);
-          }} title="Remove row">×</button>
+          <button className="rm" onClick={async () => {
+            if (await appConfirm({ title: "Remove category", message: `Remove "${e.cat}" from this month?`, confirmLabel: "Remove", danger: true })) removeRow(e.id);
+          }} title="Remove row"><Icon name="x" size={10} /></button>
         </td>
       </tr>
     );
@@ -321,9 +321,9 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, incomeRows = [], set
                     <CellMoney value={r.amount} onChange={(v) => setIncomeField(r.id, "amount", v)} />
                   </td>
                   <td>
-                    <button className="rm" onClick={() => {
-                      if (confirm(`Remove "${r.label || "income row"}"?`)) removeIncome(r.id);
-                    }} title="Remove row">×</button>
+                    <button className="rm" onClick={async () => {
+                      if (await appConfirm({ title: "Remove income", message: `Remove "${r.label || "income row"}"?`, confirmLabel: "Remove", danger: true })) removeIncome(r.id);
+                    }} title="Remove row"><Icon name="x" size={10} /></button>
                   </td>
                 </tr>
               ))}
@@ -365,9 +365,9 @@ function ExpensesPage({ ledgers, setLedgers, selectedMonth, incomeRows = [], set
                       <td className="dim">{t.card || ""}</td>
                       <td className="num">{fmt(t.amount)}</td>
                       <td>
-                        <button className="rm" title="Remove transaction" onClick={() => {
-                          if (confirm(`Remove "${t.description}" and subtract ${fmt(t.amount)} from ${t.category}?`)) removeTxn(t);
-                        }}>×</button>
+                        <button className="rm" title="Remove transaction" onClick={async () => {
+                          if (await appConfirm({ title: "Remove transaction", message: `Remove "${t.description}" and subtract ${fmt(t.amount)} from ${t.category}?`, confirmLabel: "Remove", danger: true })) removeTxn(t);
+                        }}><Icon name="x" size={10} /></button>
                       </td>
                     </tr>
                   ))}

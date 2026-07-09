@@ -114,7 +114,9 @@ function downloadTabCSV(tab, ctx) {
 function downloadAllXLSX(ctx) {
   const { ledgers, savings, assets, liabilities, history } = ctx;
   if (typeof XLSX === "undefined") {
-    alert("Spreadsheet library not loaded — check your connection and reload.");
+    window.toast
+      ? toast("Spreadsheet library not loaded — check your connection and reload", "danger")
+      : alert("Spreadsheet library not loaded — check your connection and reload.");
     return;
   }
   const sheets = [

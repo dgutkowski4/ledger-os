@@ -66,7 +66,9 @@ function SavingsSection({ savings, setSavings, month = "APRIL" }) {
                 </td>
                 <td>
                   <button className="rm" style={{ opacity: 1 }} title="Remove"
-                    onClick={() => { if (confirm(`Remove "${r.acct}"?`)) remove(r.id); }}>×</button>
+                    onClick={async () => {
+                      if (await appConfirm({ title: "Remove account", message: `Remove "${r.acct}"?`, confirmLabel: "Remove", danger: true })) remove(r.id);
+                    }}><Icon name="x" size={10} /></button>
                 </td>
               </tr>
             );

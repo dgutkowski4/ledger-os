@@ -144,14 +144,14 @@ async function ledgerRestore(file) {
     const parsed = JSON.parse(await file.text());
     const data = parsed?._type === "ledger-os-backup" ? parsed.data : null;
     if (!data || typeof data !== "object" || Array.isArray(data)) {
-      alert("Not a valid Ledger OS backup file.");
+      window.toast ? toast("Not a valid Ledger OS backup file", "danger") : alert("Not a valid Ledger OS backup file.");
       return;
     }
     applySnapshot(data);
     if (sb && currentUser) await uploadNow();
     window.location.reload();
   } catch (e) {
-    alert(`Restore failed: ${e.message}`);
+    window.toast ? toast(`Restore failed: ${e.message}`, "danger") : alert(`Restore failed: ${e.message}`);
   }
 }
 
@@ -219,7 +219,7 @@ function AuthWidget() {
 
   return (
     <div className="auth" ref={ref}>
-      <button className="tabs__b" onClick={() => setOpen((o) => !o)}
+      <button className="topbar__btn" onClick={() => setOpen((o) => !o)}
         title={user ? user.email : "Sign in to sync across devices"}>
         {user
           ? (<><span className={`auth-dot auth-dot--${status}`} />{user.email.split("@")[0]}</>)
