@@ -65,6 +65,25 @@ function scheduleUpload() {
   uploadTimer = setTimeout(uploadNow, 1200);
 }
 
+/* Reload-loop breaker: applying a cloud snapshot triggers a reload, but boot-time
+   data migrations can immediately re-normalize local data so it never becomes
+   byte-identical to the cloud copy — which would reload forever. We mark each
+   cloud version (updated_at) we apply; if we see the SAME version still differing
+   after a reload, local is the migrated truth and gets pushed up instead. */
+const APPLIED_MARK = "ledger_sync_applied";
+const getAppliedMark = () => { try { return sessionStorage.getItem(APPLIED_MARK); } catch { return null; } };
+const setAppliedMark = (v) => { try { sessionStorage.setItem(APPLIED_MARK, v); } catch {} };
+
+async function applyRemoteOnce(row) {
+  if (getAppliedMark() === row.updated_at) {
+    await uploadNow(); /* local (normalized) becomes the new cloud truth */
+    return;
+  }
+  setAppliedMark(row.updated_at);
+  applySnapshot(row.data);
+  window.location.reload();
+}
+
 /* Refresh from the cloud when this tab regains focus, so an idle device
    doesn't clobber newer data from another device with stale edits. Skipped
    while local changes are pending upload — active edits win. */
@@ -75,8 +94,7 @@ async function pullRemote() {
   if (error || !row || row.updated_at === lastKnownRemote) return;
   lastKnownRemote = row.updated_at;
   if (row.data && Object.keys(row.data).length && canon(row.data) !== canon(snapshot())) {
-    applySnapshot(row.data);
-    window.location.reload();
+    await applyRemoteOnce(row);
   }
 }
 window.addEventListener("focus", pullRemote);
@@ -99,8 +117,7 @@ async function initialSync(user) {
   lastKnownRemote = row?.updated_at || null;
   if (row && row.data && Object.keys(row.data).length) {
     if (canon(row.data) !== canon(snapshot())) {
-      applySnapshot(row.data);
-      window.location.reload();
+      await applyRemoteOnce(row);
       return;
     }
     setSyncStatus("synced");
