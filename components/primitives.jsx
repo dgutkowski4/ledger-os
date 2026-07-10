@@ -148,6 +148,14 @@ function SoftLine({ data, height = 120 }) {
 
   const ticks = [lo, lo + rng / 2, hi];
 
+  if (!data.length) {
+    return (
+      <div className="sl" ref={ref}>
+        <div className="sl__none" style={{ height }}>No history yet</div>
+      </div>
+    );
+  }
+
   return (
     <div className="sl" ref={ref} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
       <svg width={w} height={height}>

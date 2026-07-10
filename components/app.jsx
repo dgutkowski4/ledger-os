@@ -304,7 +304,9 @@ function App() {
   const [rolloverDismissed, setRolloverDismissed] = React.useState(() =>
     localStorage.getItem("ledger_rollover_dismissed") || ""
   );
-  const showRollover = latestMonth && !ledgers[DEFAULT_MONTH] && rolloverDismissed !== DEFAULT_MONTH;
+  /* Shown when the current calendar month doesn't exist — including the
+     zero-month state after deleting everything, which needs a way back in */
+  const showRollover = !ledgers[DEFAULT_MONTH] && rolloverDismissed !== DEFAULT_MONTH;
 
   const dismissRollover = () => {
     localStorage.setItem("ledger_rollover_dismissed", DEFAULT_MONTH);
@@ -312,7 +314,11 @@ function App() {
   };
 
   const startCurrentMonth = () => {
-    const source = ledgers[latestMonth] || { expenses: [] };
+    /* No months at all → seed the fresh-user skeleton instead of an empty ledger */
+    const source = ledgers[latestMonth] || {
+      expenses: window.EXPENSES.map((e) => ({ ...e, id: uid("e") })),
+      income: window.INCOME.map((i) => ({ ...i, id: uid("i") })),
+    };
     const [name, y] = DEFAULT_MONTH.split(" ");
     setNwHistory((prev) => {
       const updated = prev.map((h, i) => (i === prev.length - 1 ? { ...h, v: liveNetWorth } : h));
@@ -539,7 +545,11 @@ function App() {
       {/* Month rollover banner */}
       {showRollover && (
         <div className="rollover">
-          <span>It’s {DEFAULT_MONTH.split(" ")[0]} — start a new month from {latestMonth}’s budget?</span>
+          <span>
+            {latestMonth
+              ? `It’s ${DEFAULT_MONTH.split(" ")[0]} — start a new month from ${latestMonth}’s budget?`
+              : `No months yet — start ${DEFAULT_MONTH} fresh?`}
+          </span>
           <span style={{ display: "flex", gap: 8 }}>
             <button className="rollover__btn" onClick={startCurrentMonth}>Start {DEFAULT_MONTH.split(" ")[0]}</button>
             <button className="btn-ghost" onClick={dismissRollover}>Dismiss</button>

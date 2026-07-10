@@ -158,7 +158,7 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history 
   const hasPrior   = history.length >= 2;
   const lastMonthV = hasPrior ? history[history.length - 2].v : null;
   const mom        = hasPrior ? netWorth - lastMonthV : null;
-  const ytdStart   = history.length >= 5 ? history[history.length - 5].v : history[0].v;
+  const ytdStart   = history.length >= 5 ? history[history.length - 5].v : (history[0]?.v ?? netWorth);
   const ytdD       = netWorth - ytdStart;
 
   /* Asset operations */
@@ -228,11 +228,11 @@ function NetWorthPage({ assets, setAssets, liabilities, setLiabilities, history 
               </div>
               <div>
                 <span className="nw__lbl">12mo high</span>
-                <span className="nw__kvv">{fmt0(Math.max(...chartData.map((h) => h.v)))}</span>
+                <span className="nw__kvv">{fmt0(chartData.length ? Math.max(...chartData.map((h) => h.v)) : netWorth)}</span>
               </div>
               <div>
                 <span className="nw__lbl">12mo low</span>
-                <span className="nw__kvv">{fmt0(Math.min(...chartData.map((h) => h.v)))}</span>
+                <span className="nw__kvv">{fmt0(chartData.length ? Math.min(...chartData.map((h) => h.v)) : netWorth)}</span>
               </div>
             </div>
           </div>

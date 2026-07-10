@@ -81,12 +81,12 @@ function SavingsSection({ savings, setSavings, month = "APRIL" }) {
 }
 
 function NetWorthSection({ history, netWorth, month = "APRIL" }) {
-  const current   = netWorth != null ? netWorth : history[history.length - 1].v;
+  const current   = netWorth != null ? netWorth : (history.length ? history[history.length - 1].v : 0);
   const hasPrior  = history.length >= 2;
   const prior     = hasPrior ? history[history.length - 2].v : null;
   const delta     = hasPrior ? current - prior : null;
   const deltaP    = hasPrior && prior ? (delta / prior) * 100 : null;
-  const ytdStart  = history.length >= 5 ? history[history.length - 5].v : history[0].v;
+  const ytdStart  = history.length >= 5 ? history[history.length - 5].v : (history[0]?.v ?? current);
   const ytdD      = current - ytdStart;
   const multiYear = new Set(history.map((h) => h.y).filter(Boolean)).size > 1;
   const chartData = history.map((h, i) => ({
@@ -117,11 +117,11 @@ function NetWorthSection({ history, netWorth, month = "APRIL" }) {
           </div>
           <div>
             <span className="nw__lbl">12mo high</span>
-            <span className="nw__kvv">{fmt0(Math.max(...chartData.map((h) => h.v)))}</span>
+            <span className="nw__kvv">{fmt0(chartData.length ? Math.max(...chartData.map((h) => h.v)) : current)}</span>
           </div>
           <div>
             <span className="nw__lbl">12mo low</span>
-            <span className="nw__kvv">{fmt0(Math.min(...chartData.map((h) => h.v)))}</span>
+            <span className="nw__kvv">{fmt0(chartData.length ? Math.min(...chartData.map((h) => h.v)) : current)}</span>
           </div>
         </div>
       </div>
